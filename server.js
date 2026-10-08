@@ -45,8 +45,8 @@ const TEACHERS = PASS_RAW.split(',').map(e => e.trim()).filter(Boolean).map(e =>
   const cut = e.indexOf('=');
   const name = cut > 0 ? e.slice(0, cut).trim() : '';
   const code = normCode(cut > 0 ? e.slice(cut + 1) : e);
-  return { name: /^[A-Za-z0-9 _.&'-]{1,40}$/.test(name) ? name : '', code, hash: sha(code) };
-}).filter(t => t.name && t.code.length >= 8);
+  return { name: /^[A-Za-z0-9 _.&'-]{1,40}$/.test(name) ? name : (cut > 0 ? '' : 'Staff'), code, hash: sha(code) };
+}).filter(t => t.name && t.code.length >= 6);
 const SKIPPED_PASSCODES = PASS_RAW.split(',').filter(e => e.trim()).length - TEACHERS.length;
 const SECRET = sha('fulton-conferences|' + (process.env.SESSION_SECRET || '') + '|' + githubToken() + '|' + PASS_RAW);
 const SESSION_DAYS = 60;
@@ -249,7 +249,7 @@ function statusPage(req, res) {
     [TEACHERS.length > 0, TEACHERS.length ? `${TEACHERS.length} teacher passcodes are set (${TEACHERS.map(t => esc(t.name)).join(', ')}).` : 'No teacher passcodes are set. Add TEACHER_PASSCODES under Environment, like Hannah=maple garden 42.'],
   ];
   if (store.saveError) lines.unshift([false, store.saveError]);
-  if (SKIPPED_PASSCODES) lines.push([false, `${SKIPPED_PASSCODES} passcode entries were ignored. Each must look like Name=passcode, with a passcode of at least 8 characters.`]);
+  if (SKIPPED_PASSCODES) lines.push([false, `${SKIPPED_PASSCODES} passcode entries were ignored. Each must be a passcode of at least 6 characters, or Name=passcode.`]);
   const html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Conference server status</title></head><body style="font-family:system-ui,sans-serif;font-size:18px;line-height:1.5;max-width:680px;margin:32px auto;padding:0 16px"><h1 style="font-size:22px">Family Conferences server</h1><p>The server is running.</p>' +
     lines.map(([ok, t]) => `<p style="font-weight:600;color:${ok ? '#1a7f37' : '#b42318'}">${ok ? 'WORKING.' : 'NEEDS ATTENTION.'} ${t}</p>`).join('') +
     `<p style="color:#555;font-size:15px">Reading model ${esc(QUICK_MODELS[modelAt.quick])}. Careful reading model ${esc(CAREFUL_MODELS[modelAt.careful])}.</p></body></html>`;

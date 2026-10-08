@@ -14,7 +14,7 @@ This repository holds code only. It never holds children's information or keys.
 
 | Setting | What it holds |
 |---|---|
-| `TEACHER_PASSCODES` | Each teacher's name and passcode, separated by commas, like `Hannah=maple garden 42,Chris=river stone 7`. Passcodes need at least 8 characters. Removing a teacher signs them out. |
+| `TEACHER_PASSCODES` | Each teacher's name and passcode, separated by commas, like `Hannah=maple garden 42,Chris=river stone 7`. Passcodes need at least 6 characters. A single shared passcode with no name also works, and edits then show as Staff. Removing a teacher signs them out. |
 | `GITHUB_TOKEN` | A fine-grained GitHub token with Contents read and write on `fulton-conference-records` only |
 | `ANTHROPIC_API_KEY` | The same key TREE uses |
 | `RECORDS_REPO` | Optional. Defaults to `renee-creator/fulton-conference-records` |
