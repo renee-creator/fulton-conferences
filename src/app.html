@@ -1,0 +1,1650 @@
+<title>Fulton Family Conferences</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a working ledger. Sticky header with tabs, one main column, editor with a side rail for prep and history. */
+:root{
+  --bg:#F3F5F1; --surface:#FFFFFF; --surface-2:#EBEFEA; --ink:#1E2A23; --muted:#5C6A61; --line:#D8DFD8;
+  --accent:#2E5B44; --accent-ink:#FFFFFF; --accent-soft:#E1EBE4;
+  --ok:#2F7A4F; --ok-soft:#DDEFE3; --sched:#9A6A1C; --sched-soft:#F6EBD6; --prog:#3D6290; --prog-soft:#E1E9F4; --todo:#7E8983; --todo-soft:#ECEFEC; --danger:#A3392E; --danger-soft:#F7E2DF;
+  --f-display:"Young Serif", Georgia, "Times New Roman", serif;
+  --f-body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121815; --surface:#1A221E; --surface-2:#212B26; --ink:#E4EBE6; --muted:#9BA9A1; --line:#2F3A34;
+  --accent:#8EC5A3; --accent-ink:#0F1A14; --accent-soft:#213429;
+  --ok:#7FCB9B; --ok-soft:#1F3428; --sched:#E0B568; --sched-soft:#3A2F1B; --prog:#93B6E3; --prog-soft:#1F2B3B; --todo:#8D9892; --todo-soft:#242C28; --danger:#EE8F84; --danger-soft:#3A2220;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121815; --surface:#1A221E; --surface-2:#212B26; --ink:#E4EBE6; --muted:#9BA9A1; --line:#2F3A34;
+  --accent:#8EC5A3; --accent-ink:#0F1A14; --accent-soft:#213429;
+  --ok:#7FCB9B; --ok-soft:#1F3428; --sched:#E0B568; --sched-soft:#3A2F1B; --prog:#93B6E3; --prog-soft:#1F2B3B; --todo:#8D9892; --todo-soft:#242C28; --danger:#EE8F84; --danger-soft:#3A2220;
+  color-scheme:dark}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.5}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:1.6rem} h2{font-size:1.3rem} h3{font-size:1.05rem}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+.eyebrow{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{max-width:1180px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand svg{flex:none}
+.brand b{font-family:var(--f-display);font-weight:400;font-size:1.1rem;display:block;line-height:1.1}
+.brand span{font-size:.75rem;color:var(--muted)}
+nav.tabs{display:flex;gap:4px;flex-wrap:wrap}
+nav.tabs button{border:0;background:none;padding:8px 12px;border-radius:8px;cursor:pointer;color:var(--muted);font-weight:600}
+nav.tabs button[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+.top-actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+@media (max-width:640px){header.top{position:static}.top-in{gap:10px}.top-actions{margin-left:0;width:100%}.top-actions .btn{width:100%;justify-content:center}}
+
+main{max-width:1180px;margin:0 auto;padding:24px 16px 80px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:.9rem;line-height:1.2;text-decoration:none;color:var(--ink)}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.ghost{border-color:transparent;background:none}
+.btn.danger{color:var(--danger)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sm{padding:5px 10px;font-size:.82rem}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.spread{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.stack{display:flex;flex-direction:column;gap:16px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;font-size:.78rem;font-weight:600;white-space:nowrap}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.st-complete{background:var(--ok-soft);color:var(--ok)}
+.st-scheduled{background:var(--sched-soft);color:var(--sched)}
+.st-progress{background:var(--prog-soft);color:var(--prog)}
+.st-none{background:var(--todo-soft);color:var(--todo)}
+.st-held{background:var(--danger-soft);color:var(--danger)}
+.st-withdrawn{background:var(--danger-soft);color:var(--danger)}
+
+/* overview */
+.rooms{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.room h3{display:flex;justify-content:space-between;align-items:baseline}
+.bar{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--todo-soft);margin:10px 0 8px}
+.bar i{display:block;height:100%}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend span::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--c)}
+.split{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}
+@media (max-width:900px){.split{grid-template-columns:minmax(0,1fr)}}
+
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table.list{width:100%;border-collapse:collapse;font-size:.92rem}
+table.list th{text-align:left;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--surface-2);white-space:nowrap}
+table.list td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.list tr:last-child td{border-bottom:0}
+table.list tr.click{cursor:pointer}
+table.list tr.click:hover td{background:var(--accent-soft)}
+.name-cell b{font-weight:600}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.filters input,.filters select,.field input,.field select,.field textarea{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;min-width:0}
+.filters input[type=search]{width:220px;max-width:100%}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:7px 12px;cursor:pointer;font-weight:600;font-size:.85rem;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+
+.list-plain{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.list-plain li{padding:10px 0;border-bottom:1px solid var(--line);display:flex;gap:10px;justify-content:space-between;align-items:center}
+.list-plain li:last-child{border-bottom:0}
+.date-tile{font-family:var(--f-mono);font-size:.78rem;text-align:center;border:1px solid var(--line);border-radius:6px;padding:2px 6px;min-width:52px;line-height:1.3}
+.date-tile b{display:block;font-size:1rem}
+
+/* editor */
+.conf-head{display:flex;gap:16px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;margin-bottom:16px}
+.conf-head .who h1{font-size:1.8rem}
+.meta-line{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:.9rem;margin-top:4px}
+.ed{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+@media (max-width:980px){.ed{grid-template-columns:minmax(0,1fr)}}
+.sheet{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.sheet-sec{padding:16px;border-bottom:1px solid var(--line)}
+.sheet-sec:last-child{border-bottom:0}
+.sheet-title{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:700px){.grid2,.grid3,.grid4{grid-template-columns:minmax(0,1fr)}}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label,.field .lbl{font-weight:600;font-size:.9rem}
+.field .hint{font-size:.8rem;color:var(--muted);font-style:italic;margin-top:-2px}
+.field textarea{resize:vertical;min-height:84px;line-height:1.45}
+.field.full{grid-column:1/-1}
+.field.saved textarea,.field.saved input{border-color:var(--ok)}
+.domain{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--bg);display:flex;flex-direction:column;gap:6px;min-width:0}
+.domain textarea{background:var(--surface)}
+.qnum{font-family:var(--f-mono);color:var(--accent);margin-right:4px}
+.rail{display:flex;flex-direction:column;gap:14px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px)}
+@media (max-width:980px){.rail{position:static}}
+.rail .panel h3{margin-bottom:8px}
+.check{display:flex;gap:8px;align-items:flex-start;padding:5px 0;font-size:.9rem}
+.check input{margin-top:3px;accent-color:var(--accent)}
+.meter{height:6px;background:var(--todo-soft);border-radius:4px;overflow:hidden;margin-top:6px}
+.meter i{display:block;height:100%;background:var(--accent)}
+.save-state{font-size:.8rem;color:var(--muted)}
+.prior{border-left:3px solid var(--sched);padding:6px 10px;background:var(--sched-soft);border-radius:0 6px 6px 0;font-size:.88rem;white-space:pre-wrap}
+.attach{display:flex;gap:8px;align-items:center;font-size:.85rem;padding:6px 0;border-bottom:1px solid var(--line)}
+.attach:last-child{border-bottom:0}
+.attach img{width:44px;height:44px;object-fit:cover;border-radius:4px;border:1px solid var(--line)}
+.attach a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+
+/* child page */
+.timeline{display:flex;flex-direction:column;gap:12px}
+.tl-item{display:grid;grid-template-columns:110px minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:600px){.tl-item{grid-template-columns:minmax(0,1fr)}}
+.tl-when{font-family:var(--f-mono);font-size:.82rem;color:var(--muted);padding-top:14px}
+.tl-when b{display:block;color:var(--ink);font-family:var(--f-display);font-weight:400;font-size:1.05rem}
+.tl-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;min-width:0}
+.tl-card p{margin:.3em 0 0;white-space:pre-wrap}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;font-size:.9rem}
+.kv dt{color:var(--muted)} .kv dd{margin:0;overflow-wrap:anywhere}
+.compare{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(240px,1fr);gap:12px;overflow-x:auto;padding-bottom:6px}
+.compare .tl-card{white-space:pre-wrap}
+
+/* modal */
+.scrim{position:fixed;inset:0;background:rgba(10,16,13,.45);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:max(24px,env(safe-area-inset-top,0px)) 16px 24px;overflow-y:auto}
+.modal{background:var(--surface);color:var(--ink);border-radius:12px;border:1px solid var(--line);width:100%;max-width:760px;padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.modal.wide{max-width:980px}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:14px}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:26px 16px;text-align:center;cursor:pointer;background:var(--bg)}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.review-row{display:grid;grid-template-columns:180px minmax(0,1fr) 150px;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);align-items:start}
+@media (max-width:700px){.review-row{grid-template-columns:minmax(0,1fr)}}
+.review-row textarea{width:100%;min-height:60px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--surface)}
+.review-row .cur{font-size:.8rem;color:var(--muted);white-space:pre-wrap;margin-top:4px}
+.progress-note{display:flex;gap:10px;align-items:center;padding:12px;border-radius:8px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+.spinner{width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spinner{animation-duration:3s}}
+.notice{padding:12px 14px;border-radius:8px;background:var(--sched-soft);color:var(--ink);border:1px solid var(--line);font-size:.9rem}
+.empty{padding:36px 16px;text-align:center;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;z-index:80;font-weight:600;font-size:.9rem;max-width:calc(100% - 32px)}
+.diff-old{text-decoration:line-through;color:var(--muted)}
+.guide li{margin-bottom:6px}
+.guide{padding-left:18px;margin:0;font-size:.88rem}
+details summary{cursor:pointer;font-weight:600}
+</style>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path d="M15 28V15M15 15c-4-1-7-4-8-8M15 15c4-1 7-4 8-8M15 19c-3 0-5-2-6-4M15 19c3 0 5-2 6-4M15 11V3" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/><path d="M7 28h16" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <div><b>Family Conferences</b><span>Fulton Community School &amp; Farm</span></div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button data-go="overview">Overview</button>
+      <button data-go="children">Children</button>
+      <button data-go="settings">Settings</button>
+    </nav>
+    <div class="top-actions">
+      <button class="btn primary" data-act="import-form" id="btn-import-top">Fill from a completed form</button>
+    </div>
+  </div>
+</header>
+<main id="app"><div class="empty">Loading conferences and children…</div></main>
+<div id="modal-root"></div>
+
+<script>
+"use strict";
+/* ---------- constants from the 2026-27 Family Conference template ---------- */
+const FIELDS = [
+  {k:"interests", label:"Main Interests", hint:"What the child returns to again and again"},
+  {k:"friends", label:"Friends", hint:"Who the child seeks out and how they play together"},
+  {k:"smallGroup", label:"Small Group Work and Current Inquiry", hint:"The project or question the child's small group is exploring, their role and contributions, and how their thinking has developed", full:true},
+  {k:"favoriteAreas", label:"Favorite Areas and Activities", hint:"Indoors, studio, and outdoor spaces"},
+  {k:"nature", label:"Connection to Nature and the Farm", hint:"Garden, animals, weather, and the land"},
+  {k:"approaches", label:"Approaches to Learning and Self-Regulation", hint:"Curiosity, persistence, attention, and managing feelings and routines"},
+  {k:"social", label:"Social and Emotional Development", hint:"Relationships with teachers, empathy, and handling conflict"},
+  {k:"language", label:"Language and Literacy", hint:"Listening, speaking, early reading and writing, and home language"},
+  {k:"cognition", label:"Cognition (math and science)", hint:"Problem solving, counting, patterns, observing, and asking questions"},
+  {k:"physical", label:"Physical Development and Health", hint:"Fine and gross motor, self-care, and independence"},
+  {k:"expressive", label:"Expressive Languages", hint:"Drawing, clay, paint, building, music, and movement"},
+  {k:"strengths", label:"Strengths", hint:"", full:true},
+  {k:"documentation", label:"Documentation Shared", hint:"Observations, small group documentation, work samples, and photos reviewed with the family", full:true},
+  {k:"goals", label:"Shared Goals (school and home)", hint:"Goals agreed on together during the conference, drawing on Family Reflections", full:true},
+  {k:"nextSteps", label:"Next Steps", hint:"How school and home will each support the goals, and when we will check in again", full:true},
+];
+const REFLECTIONS = [
+  {k:"r1", q:"What are you noticing about your child at home right now?"},
+  {k:"r2", q:"What are they especially interested in or talking about outside of school?"},
+  {k:"r3", q:"Are there any changes, new developments, or challenges you have noticed?"},
+  {k:"r4", q:"Which friends, teachers, or small group projects does your child mention?"},
+  {k:"r5", q:"Looking back at the hopes and goals you shared at enrollment, what feels most important to you now?"},
+  {k:"r6", q:"Is there anything you are wondering about or would like us to think about together?"},
+];
+const PREP = [
+  {k:"questionnaire", label:"Reviewed the Family Questionnaire"},
+  {k:"drdp", label:"Reviewed current DRDP documentation"},
+  {k:"coteachers", label:"Prepared together with co-teachers"},
+  {k:"samples", label:"Gathered work samples and photos to share"},
+  {k:"priorGoals", label:"Reviewed goals from the last conference", needsPrior:true},
+  {k:"offeredVirtual", label:"Offered an in-person or virtual option"},
+  {k:"renee", label:"Invited Renee to join (optional)"},
+];
+const DEFAULT_SETTINGS = {
+  classrooms:["West","North","South"],
+  years:["2025-26","2026-27","2027-28"],
+  educators:{West:[],North:[],South:[]},
+};
+const TERMS = ["Fall","Spring"];
+
+/* ---------- state ---------- */
+const S = {
+  db:null, user:null, sample:null, assets:null, downloads:null, uid:null, canWrite:null,
+  children:{}, confs:{}, settings:structuredClone(DEFAULT_SETTINGS),
+  loaded:{children:false,confs:false}, dbState:"waiting",
+  view:{name:"overview"}, period:null, filters:{q:"",room:"All",status:"All",show:"active"},
+  names:{},
+};
+S.period = currentPeriod();
+try{ const f = JSON.parse(localStorage.getItem("fcf-filters")||"null"); if(f) Object.assign(S.filters,f); }catch(e){}
+
+/* ---------- helpers ---------- */
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+const nowISO = () => new Date().toISOString();
+function slug(s){return String(s||"").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60)||"child";}
+function toISODate(s){
+  if(!s) return "";
+  s = String(s).trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if(m){ let y = +m[3]; if(y<100) y += 2000; return `${y}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`; }
+  if(!/\b(19|20)\d{2}\b/.test(s)) return ""; // no year written, so do not guess one
+  if(!/\b\d{1,2}(st|nd|rd|th)?\b/i.test(s.replace(/\b(19|20)\d{2}\b/,""))) return ""; // no day written, so do not invent the 1st
+  const d = new Date(s); if(!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  return "";
+}
+function fmtDate(iso, opts={month:"short",day:"numeric",year:"numeric"}){ if(!iso) return ""; const d=new Date(iso.length===10?iso+"T12:00:00":iso); return isNaN(d)?iso:d.toLocaleDateString(undefined,opts); }
+function fmtTime(t){ if(!t) return ""; const [h,m]=t.split(":").map(Number); if(isNaN(h)) return t; const d=new Date(); d.setHours(h,m||0); return d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"}); }
+function ageAt(dob, at){
+  if(!dob) return ""; const b=new Date(dob+"T12:00:00"), a=at?new Date(at+"T12:00:00"):new Date();
+  if(isNaN(b)||isNaN(a)) return "";
+  let mo=(a.getFullYear()-b.getFullYear())*12+(a.getMonth()-b.getMonth()); if(a.getDate()<b.getDate()) mo--;
+  if(mo<0) return ""; const y=Math.floor(mo/12), m=mo%12;
+  return (y? y+" yr"+(y>1?"s":""):"") + (y&&m?" ":"") + (m||!y? m+" mo"+(m===1?"":"s"):"");
+}
+function currentPeriod(d=new Date()){
+  const y=d.getFullYear(), mo=d.getMonth();
+  if(mo>=7) return {year:`${y}-${String(y+1).slice(2)}`, term:"Fall"};
+  return {year:`${y-1}-${String(y).slice(2)}`, term:"Spring"};
+}
+function periodFromDate(iso){ if(!iso) return null; const d=new Date(iso+"T12:00:00"); return isNaN(d)?null:currentPeriod(d); }
+const periodLabel = p => `${p.term} ${p.term==="Fall"? "20"+p.year.slice(2,4) : "20"+p.year.slice(5,7)}`;
+function confLabel(cf){ if(!cf) return ""; if(cf.term==="Historical") return "Earlier conferences, date unknown"; if(cf.term==="Additional") return `Additional · ${cf.schoolYear}`; return `${cf.term} ${cf.schoolYear}`; }
+function confKey(c){ return c.term==="Historical"? "0000" : (c.confDate||c.createdAt||""); }
+function findConf(childId, year, term){
+  if(term==="Additional") return null;
+  if(term==="Historical") return Object.values(S.confs).find(c=>c.childId===childId&&c.term==="Historical");
+  return Object.values(S.confs).find(c=>c.childId===childId&&c.schoolYear===year&&c.term===term);
+}
+const LABEL_LINE=/^From (the|another) form.*$/gm;
+function words(s){ return String(s||"").replace(LABEL_LINE,"").toLowerCase().replace(/[^a-z0-9 ]/g," ").split(/\s+/).filter(w=>w.length>2); }
+function lev(a,b){ const m=a.length,n=b.length; let prev=Array.from({length:n+1},(_,j)=>j); for(let i=1;i<=m;i++){ const cur=[i]; for(let j=1;j<=n;j++) cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1)); prev=cur; } return prev[n]; }
+function nearWord(w, set){ if(set.has(w)) return true; if(w.length<4) return false; const tol=w.length>=7?2:1; for(const x of set){ if(Math.abs(x.length-w.length)<=tol && x[0]===w[0] && lev(w,x)<=tol) return true; } return false; }
+// share of the words in small that also appear in big, allowing small differences in how handwriting was read
+function containment(small, big){ const a=words(small), b=new Set(words(big)); if(!a.length) return 1; return a.filter(w=>nearWord(w,b)).length/a.length; }
+// combine text from several copies or several teachers without repeating what is already there
+function mergeText(cur, val, label){
+  cur=String(cur||"").trim(); val=String(val||"").trim();
+  if(!val) return cur; if(!cur) return label? label+"\n"+val : val;
+  if(containment(val,cur)>=0.8) return cur;
+  if(containment(cur,val)>=0.8 && !/\n\n/.test(cur.replace(LABEL_LINE,"").trim())){ const keep=(cur.match(/^From (the|another) form[^\n]*/)||[""])[0]; return (keep? keep+"\n" : "")+val; }
+  return cur+"\n\n"+(label? label+"\n" : "")+val;
+}
+function pad2(n){ return String(n).padStart(2,"0"); }
+// work out the season from whatever the form gives: a full date, a month, or the child's age written on it
+function inferSeason(r, child){
+  const today=new Date(); const tooLate=d=>d>new Date(today.getTime()+45*864e5);
+  const iso=toISODate(r?.conferenceDate);
+  if(iso && !tooLate(new Date(iso+"T12:00:00"))) return {...currentPeriod(new Date(iso+"T12:00:00")), date:iso, how:"date"};
+  const mo=Math.round(+r?.conferenceMonth)||0, day=Math.round(+r?.conferenceDay)||0; let yr=Math.round(+r?.conferenceYear)||0;
+  const ageM=Math.round(+r?.ageMonths)||0;
+  let approx=null;
+  if(ageM>0 && child?.dob){ approx=new Date(child.dob+"T12:00:00"); approx.setMonth(approx.getMonth()+ageM); }
+  let how = yr? "date" : "age";
+  if(mo>=1&&mo<=12 && !yr && approx){ let best=null; for(const y of [approx.getFullYear()-1,approx.getFullYear(),approx.getFullYear()+1]){ const diff=Math.abs(new Date(y,mo-1,15)-approx); if(!best||diff<best.diff) best={y,diff}; } if(best.diff<=150*864e5) yr=best.y; }
+  if(mo>=1&&mo<=12 && yr>=2015){ const d=new Date(yr,mo-1,day||15); if(!tooLate(d)) return {...currentPeriod(d), date: day? `${yr}-${pad2(mo)}-${pad2(day)}` : "", how}; }
+  if(approx && !mo && !tooLate(approx)) return {...currentPeriod(approx), date:"", how:"age"};
+  return {year:"", term:"Historical", date:"", how:"unknown"};
+}
+function seasonNote(how){ return how==="age"? "Season worked out from the age written on the form" : how==="unknown"? "Date unclear, kept with earlier conferences" : ""; }
+function childName(c){ return c ? [c.first,c.last].filter(Boolean).join(" ") || c.name || "Unnamed child" : "Unknown child"; }
+function activeChildren(){ return Object.values(S.children).filter(c=>c.status!=="withdrawn"); }
+function confsFor(childId){ return Object.values(S.confs).filter(c=>c.childId===childId).sort(confSort); }
+function confSort(a,b){ return confKey(a).localeCompare(confKey(b)); }
+function filledCount(c){ let n=0; FIELDS.forEach(f=>{ if((c.fields?.[f.k]||"").trim()) n++; }); REFLECTIONS.forEach(r=>{ if((c.reflections?.[r.k]||"").trim()) n++; }); return n; }
+const TOTAL_FIELDS = FIELDS.length + REFLECTIONS.length;
+function todayISO(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function hasWork(c){ return filledCount(c)>0 || Object.values(c.prep||{}).some(Boolean) || (c.attachments||[]).length>0 || (c.staffNotes||"").trim() || (c.teacher||"").trim(); }
+function confStatus(c){
+  if(!c) return {key:"none",label:"Not started"};
+  if(c.term==="Historical") return {key:"complete",label:"Earlier record"};
+  if(c.status==="complete") return {key:"complete",label:"Complete"};
+  if(c.confDate && c.confDate<todayISO()) return {key:"held",label:"Date passed"};
+  if(c.confDate) return {key:"scheduled",label:"Scheduled"};
+  if(!hasWork(c)) return {key:"none",label:"Not started"};
+  return {key:"progress",label:"Preparing"};
+}
+function parseTime(v){
+  const m=String(v||"").trim().match(/^(\d{1,2})(?::(\d{2}))?\s*([ap])?\.?\s*m?\.?$/i); if(!m) return "";
+  let h=+m[1]; const mi=m[2]||"00"; const ap=(m[3]||"").toLowerCase();
+  if(ap==="p" && h<12) h+=12; if(ap==="a" && h===12) h=0;
+  if(!ap && h>=1 && h<=6) h+=12; // school-day afternoon times written without am or pm
+  if(h>23||+mi>59) return ""; return String(h).padStart(2,"0")+":"+mi;
+}
+function chip(st){ return `<span class="chip st-${st.key}">${esc(st.label)}</span>`; }
+function periodConf(childId, p=S.period){ return Object.values(S.confs).find(c=>c.childId===childId && c.schoolYear===p.year && c.term===p.term); }
+function priorConf(conf){
+  const list = confsFor(conf.childId).filter(c=>c.id!==conf.id && confKey(c) < (confKey(conf)||"9999"));
+  return list.length? list[list.length-1] : null;
+}
+function educatorsFor(room){ const e=S.settings.educators||{}; return room? (e[room]||[]) : Object.values(e).flat(); }
+function blobUrl(id){ return window.BLOB_URL? window.BLOB_URL(id) : "/_blob/"+id; }
+function toast(msg){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.append(t); setTimeout(()=>t.remove(),2800); }
+function saveFilters(){ try{ localStorage.setItem("fcf-filters", JSON.stringify(S.filters)); }catch(e){} }
+function loadScript(src){ return new Promise((res,rej)=>{ if($(`script[src="${src}"]`)) return res(); const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=()=>rej(new Error("Could not load "+src)); document.head.append(s); }); }
+function setPath(obj, path, val){ const parts=path.split("."); let o=obj; parts.slice(0,-1).forEach(p=>{ o[p]=o[p]||{}; o=o[p]; }); o[parts.at(-1)]=val; return obj; }
+function getPath(obj, path){ return path.split(".").reduce((o,p)=>o?.[p], obj); }
+function canEdit(){ return S.db && S.canWrite!==false; }
+
+/* ---------- capabilities ---------- */
+async function boot(){
+  render();
+  if(!window.claude?.use){ S.dbState="absent"; render(); return; }
+  const use = n => window.claude.use(n).catch(()=>null);
+  const [db,user,sample,assets,downloads] = await Promise.all(["db","user","sample","assets","downloads"].map(use));
+  Object.assign(S,{db,user,sample,assets,downloads});
+  if(user){
+    try{ S.uid = await user.id(); }catch(e){}
+    try{ const w = user.can ? await user.can("data.write") : null; S.canWrite = w; }catch(e){}
+  }
+  if(!db){ S.dbState="absent"; render(); return; }
+  S.dbState="ok";
+  const onErr = e => { console.warn(e); if(e?.code==="revoked"){ S.dbState="absent"; render(); } };
+  db.collection("children").limit(1000).onSnapshot(snap=>{
+    const m={}; snap.docs.forEach(d=>{ m[d.id]={id:d.id,...d.data()}; }); S.children=m; S.loaded.children=true; refresh();
+  }, onErr);
+  db.collection("conferences").limit(1000).onSnapshot(snap=>{
+    const m={}; snap.docs.forEach(d=>{ m[d.id]={id:d.id,...d.data()}; }); S.confs=m; S.loaded.confs=true; refresh();
+  }, onErr);
+  db.doc("settings/main").onSnapshot(snap=>{
+    if(snap.exists){ const d=snap.data(); S.settings={...structuredClone(DEFAULT_SETTINGS),...d}; }
+    refresh();
+  }, onErr);
+}
+let rafPending=false;
+function refresh(){
+  if(rafPending) return; rafPending=true;
+  requestAnimationFrame(()=>{ rafPending=false;
+    if(S.view.name==="conf" && $("#conf-editor")?.dataset.id===S.view.id){ syncEditor(); return; }
+    if(S.view.name==="settings" && $("#settings-form")) return; // avoid clobbering typing
+    render();
+  });
+}
+async function resolveNames(ids){
+  if(!S.user?.profiles) return;
+  const need = [...new Set(ids.filter(i=>i && !(i in S.names)))];
+  if(!need.length) return;
+  try{ const ps = await S.user.profiles(need); need.forEach(i=>{ S.names[i] = ps?.[i]?.name || ""; }); }catch(e){ need.forEach(i=>S.names[i]=""); }
+}
+const whoName = id => (id && S.names[id]) || (id===S.uid ? "you" : "a teammate");
+
+/* ---------- db writes ---------- */
+async function dbSet(path, data){ if(!canEdit()) throw new Error("read-only"); try{ await S.db.doc(path).set(data); } catch(e){ handleWriteError(e); throw e; } }
+async function dbUpdate(path, data){ if(!canEdit()) throw new Error("read-only"); try{ await S.db.doc(path).update(data); } catch(e){ handleWriteError(e); throw e; } }
+async function dbDelete(path){ try{ await S.db.doc(path).delete(); }catch(e){ handleWriteError(e); throw e; } }
+function handleWriteError(e){
+  console.warn(e);
+  if(e?.code==="invalid_argument" && S.canWrite==null){ S.canWrite=false; toast("Your access is view-only. Ask Renee for contributor access to make changes."); render(); }
+  else if(e?.code==="quota_exceeded") toast("Storage is full. Remove old attachments or records, then try again.");
+  else if(e?.message && !e?.code) toast(e.message);
+  else toast("That change did not save. Check your connection and try again.");
+}
+
+/* ---------- routing ---------- */
+function go(name, extra={}){ flushAll(); S.view={name,...extra}; window.scrollTo(0,0); render(); }
+document.addEventListener("click", e=>{
+  const g = e.target.closest("[data-go]"); if(g){ e.preventDefault(); go(g.dataset.go, g.dataset.id?{id:g.dataset.id}:{}); return; }
+  const a = e.target.closest("[data-act]"); if(a){ e.preventDefault(); actions[a.dataset.act]?.(a, e); }
+});
+
+/* ---------- render ---------- */
+function render(){
+  $$("#tabs [data-go]").forEach(b=>b.setAttribute("aria-current", (b.dataset.go===S.view.name || (S.view.name==="child"&&b.dataset.go==="children") || (S.view.name==="conf"&&b.dataset.go==="overview"))?"page":"false"));
+  $("#btn-import-top").hidden = !canEdit();
+  const app=$("#app");
+  if(S.dbState==="absent"){ app.innerHTML = `<div class="panel stack" style="max-width:640px;margin:40px auto"><h2>Open this page inside Claude</h2><p>Conference records are saved to a shared store that is available when this page is opened from Claude while signed in. Open it from your Claude artifacts to see the roster and conference records.</p></div>`; return; }
+  if(!S.loaded.children || !S.loaded.confs){ app.innerHTML = `<div class="empty"><span class="spinner" style="display:inline-block;vertical-align:middle"></span> Loading conferences and children…</div>`; return; }
+  const v=S.view.name;
+  const ae=document.activeElement, keepId = ae && app.contains(ae) && ae.id ? ae.id : null;
+  const sel = keepId && "selectionStart" in ae ? [ae.selectionStart, ae.selectionEnd] : null;
+  const y = window.scrollY;
+  if(v==="overview") app.innerHTML = viewOverview();
+  else if(v==="children") app.innerHTML = viewChildren();
+  else if(v==="child") app.innerHTML = viewChild(S.view.id);
+  else if(v==="conf"){ app.innerHTML = viewConf(S.view.id); afterConfRender(); }
+  else if(v==="settings") app.innerHTML = viewSettings();
+  bindFilters();
+  if(keepId){ const n=document.getElementById(keepId); if(n){ n.focus({preventScroll:true}); if(sel) try{ n.setSelectionRange(sel[0],sel[1]); }catch(e){} window.scrollTo(0,y); } }
+}
+
+function periodPicker(){
+  const opts=[]; const yrs=[...new Set([...(S.settings.years||[]), currentPeriod().year, S.period.year])].sort(); yrs.forEach(y=>TERMS.forEach(t=>opts.push({year:y,term:t})));
+  return `<select id="period" aria-label="Conference season">${opts.map(p=>`<option value="${p.year}|${p.term}" ${p.year===S.period.year&&p.term===S.period.term?"selected":""}>${esc(periodLabel(p))} · ${esc(p.year)}</option>`).join("")}</select>`;
+}
+
+function viewOverview(){
+  const kids = activeChildren();
+  const rooms = S.settings.classrooms;
+  const counts = r => { const k = kids.filter(c=>c.classroom===r); const by={complete:0,held:0,scheduled:0,progress:0,none:0}; k.forEach(c=>by[confStatus(periodConf(c.id)).key]++); return {total:k.length,...by}; };
+const tot = {total:0,complete:0,held:0,scheduled:0,progress:0,none:0}; rooms.forEach(r=>{ const c=counts(r); for(const k in tot) tot[k]+=c[k]; });
+  const roomCard = r => { const c=counts(r); const pct=k=>c.total? (c[k]/c.total*100):0;
+    return `<div class="panel room"><h3>${esc(r)} <span class="mono small muted">${c.complete}/${c.total} complete</span></h3>
+      <div class="bar" role="img" aria-label="${c.complete} complete, ${c.held} date passed, ${c.scheduled} scheduled, ${c.progress} preparing, ${c.none} not started"><i style="width:${pct("complete")}%;background:var(--ok)"></i><i style="width:${pct("held")}%;background:var(--danger)"></i><i style="width:${pct("scheduled")}%;background:var(--sched)"></i><i style="width:${pct("progress")}%;background:var(--prog)"></i></div>
+      <div class="legend"><span style="--c:var(--ok)">${c.complete} complete</span>${c.held?`<span style="--c:var(--danger)">${c.held} date passed</span>`:""}<span style="--c:var(--sched)">${c.scheduled} scheduled</span><span style="--c:var(--prog)">${c.progress} preparing</span><span style="--c:var(--todo)">${c.none} not started</span></div></div>`; };
+  const f=S.filters;
+  let list = kids.filter(c=> (f.room==="All"||c.classroom===f.room));
+  if(f.q) list = list.filter(c=>childName(c).toLowerCase().includes(f.q.toLowerCase()));
+  if(f.status!=="All") list = list.filter(c=>confStatus(periodConf(c.id)).key===f.status);
+  list.sort((a,b)=>(a.classroom||"").localeCompare(b.classroom||"") || (a.last||"").localeCompare(b.last||""));
+  const rows = list.map(c=>{ const cf=periodConf(c.id), st=confStatus(cf);
+    return `<tr class="click" tabindex="0" data-act="open-child-conf" data-id="${esc(c.id)}">
+      <td class="name-cell"><b>${esc(childName(c))}</b><div class="small muted">${esc(ageAt(c.dob))}</div></td>
+      <td>${esc(c.classroom||"")}</td>
+      <td>${esc(c.primaryEducator||"")}</td>
+      <td>${chip(st)}</td>
+      <td class="mono small">${cf?.confDate? esc(fmtDate(cf.confDate,{month:"short",day:"numeric"}))+(cf.confTime?" "+esc(fmtTime(cf.confTime)):""):""}</td>
+      <td class="mono small">${cf? filledCount(cf)+"/"+TOTAL_FIELDS:""}</td>
+    </tr>`; }).join("");
+  // upcoming + follow-ups
+  const today = todayISO();
+  const upcoming = Object.values(S.confs).filter(c=>c.confDate && c.confDate>=today && c.status!=="complete").sort(confSort).slice(0,8);
+  const soon = new Date(Date.now()+14*864e5).toISOString().slice(0,10);
+  const follow = Object.values(S.confs).filter(c=>c.followUpDate && !c.followUpDone && c.followUpDate<=soon).sort((a,b)=>a.followUpDate.localeCompare(b.followUpDate)).slice(0,8);
+  const li = (c, date, sub) => { const ch=S.children[c.childId]; const d=new Date(date+"T12:00:00");
+    return `<li><div class="row" style="gap:10px;flex-wrap:nowrap;min-width:0"><div class="date-tile">${esc(d.toLocaleDateString(undefined,{month:"short"}))}<b>${d.getDate()}</b></div><div style="min-width:0"><a href="#" data-go="conf" data-id="${esc(c.id)}"><b>${esc(childName(ch))}</b></a><div class="small muted">${sub}</div></div></div></li>`; };
+  const nonMonday = upcoming.filter(c=>new Date(c.confDate+"T12:00:00").getDay()!==1).length;
+  return `
+  <div class="spread" style="margin-bottom:18px">
+    <div><div class="eyebrow">Conference season</div><h1>${esc(periodLabel(S.period))} conferences</h1>
+      <p class="muted small" style="margin:.3em 0 0;max-width:62ch">${S.period.term==="Fall"?"Fall conferences begin after week 6 of the school year.":"Spring conferences happen after winter break and before next year's enrollment opens."} Every family is offered a 20-minute conference, in person or virtual.</p></div>
+    <div class="filters">${periodPicker()}</div>
+  </div>
+  <div class="rooms" style="margin-bottom:20px">${rooms.map(roomCard).join("")}</div>
+  <div class="split">
+    <div class="stack" style="min-width:0">
+      <div class="filters">
+        <input type="search" id="f-q" placeholder="Find a child" value="${esc(f.q)}" aria-label="Find a child">
+        <select id="f-room" aria-label="Classroom"><option>All</option>${rooms.map(r=>`<option ${f.room===r?"selected":""}>${esc(r)}</option>`).join("")}</select>
+        <select id="f-status" aria-label="Status"><option value="All">Every status</option>${[["none","Not started"],["progress","Preparing"],["scheduled","Scheduled"],["held","Date passed"],["complete","Complete"]].map(([k,l])=>`<option value="${k}" ${f.status===k?"selected":""}>${l}</option>`).join("")}</select>
+        <span class="small muted mono">${list.length} of ${tot.total}</span>
+      </div>
+      ${kids.length? `<div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th><th>Room</th><th>Primary educator</th><th>Status</th><th>When</th><th>Filled</th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="empty">No children match these filters.</td></tr>`}</tbody></table></div>`
+      : `<div class="panel empty"><p>No children on the roster yet.</p><button class="btn primary" data-act="roster-import">Import the 1Core roster PDF</button> <button class="btn" data-act="child-new">Add a child</button></div>`}
+    </div>
+    <aside class="stack">
+      <div class="panel"><h3>Coming up</h3>
+        ${upcoming.length? `<ul class="list-plain">${upcoming.map(c=>li(c,c.confDate, esc([fmtTime(c.confTime), c.format, c.teacher].filter(Boolean).join(" · "))||"Time not set")).join("")}</ul>` : `<p class="small muted">No conferences scheduled yet. Open a child and set a date to see it here.</p>`}
+        ${nonMonday? `<p class="small muted" style="margin-bottom:0">${nonMonday} upcoming ${nonMonday===1?"conference falls":"conferences fall"} on a day other than Monday.</p>`:""}
+      </div>
+      <div class="panel"><h3>Follow-ups due</h3>
+        ${follow.length? `<ul class="list-plain">${follow.map(c=>li(c,c.followUpDate, esc(c.followUpNote||"Check in with the family")+(c.followUpDate<today?' · <span style="color:var(--danger)">past due</span>':""))).join("")}</ul>` : `<p class="small muted">Follow-up check-ins set inside a conference appear here two weeks ahead.</p>`}
+      </div>
+      <div class="panel"><h3>Season totals</h3>
+        <dl class="kv"><dt>Children</dt><dd class="mono">${tot.total}</dd><dt>Complete</dt><dd class="mono">${tot.complete}</dd><dt>Date passed, not marked complete</dt><dd class="mono">${tot.held}</dd><dt>Scheduled</dt><dd class="mono">${tot.scheduled}</dd><dt>Preparing</dt><dd class="mono">${tot.progress}</dd><dt>Not started</dt><dd class="mono">${tot.none}</dd></dl>
+        <div class="row" style="margin-top:12px"><button class="btn sm" data-act="export-csv">Download season list (CSV)</button></div>
+      </div>
+    </aside>
+  </div>`;
+}
+
+function viewChildren(){
+  const f=S.filters, rooms=S.settings.classrooms;
+  let list = Object.values(S.children).filter(c=> f.show==="all" || (f.show==="withdrawn"? c.status==="withdrawn" : c.status!=="withdrawn"));
+  if(f.room!=="All") list=list.filter(c=>c.classroom===f.room);
+  if(f.q) list=list.filter(c=>(childName(c)+" "+(c.parents||[]).map(p=>p.name).join(" ")).toLowerCase().includes(f.q.toLowerCase()));
+  list.sort((a,b)=>(a.classroom||"").localeCompare(b.classroom||"") || (a.last||"").localeCompare(b.last||""));
+  const rows = list.map(c=>{ const n=confsFor(c.id).length;
+    return `<tr class="click" tabindex="0" data-go="child" data-id="${esc(c.id)}">
+    <td class="name-cell"><b>${esc(childName(c))}</b>${c.status==="withdrawn"?' <span class="chip st-withdrawn">Withdrawn</span>':""}</td>
+    <td class="mono small">${esc(fmtDate(c.dob))}</td><td class="small">${esc(ageAt(c.dob))}</td>
+    <td>${esc(c.classroom||"")}</td><td class="small">${esc(c.program||"")}</td>
+    <td class="small">${esc((c.parents||[]).map(p=>p.name).join(", "))}</td>
+    <td class="mono small">${n}</td></tr>`; }).join("");
+  return `
+  <div class="spread" style="margin-bottom:18px">
+    <div><div class="eyebrow">Roster</div><h1>Children</h1></div>
+    ${canEdit()? `<div class="row"><button class="btn" data-act="roster-import">Update from 1Core PDF</button><button class="btn primary" data-act="child-new">Add a child</button></div>`:""}
+  </div>
+  <div class="filters" style="margin-bottom:12px">
+    <input type="search" id="f-q" placeholder="Find a child or parent" value="${esc(f.q)}" aria-label="Find">
+    <select id="f-room" aria-label="Classroom"><option>All</option>${rooms.map(r=>`<option ${f.room===r?"selected":""}>${esc(r)}</option>`).join("")}</select>
+    <div class="seg" role="group" aria-label="Enrollment">${[["active","Enrolled"],["withdrawn","Withdrawn"],["all","All"]].map(([k,l])=>`<button data-act="show" data-v="${k}" aria-pressed="${f.show===k}">${l}</button>`).join("")}</div>
+    <span class="small muted mono">${list.length} shown</span>
+  </div>
+  ${list.length? `<div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th><th>Birthdate</th><th>Age</th><th>Room</th><th>Program</th><th>Family</th><th>Conferences</th></tr></thead><tbody>${rows}</tbody></table></div>`
+  : `<div class="panel empty">No children here yet. ${canEdit()?`<button class="btn" data-act="child-new">Add a child</button>`:""}</div>`}`;
+}
+
+function viewChild(id){
+  const c=S.children[id]; if(!c) return `<div class="empty">This child is no longer on the roster. <a href="#" data-go="children">Back to children</a></div>`;
+  const list=confsFor(id);
+  const domSel = S.view.domain || "goals";
+  const opts = [...FIELDS.map(f=>[ "f."+f.k, f.label ]), ...REFLECTIONS.map((r,i)=>["r."+r.k, "Family Reflection "+(i+1)])];
+  const pick = domSel.includes(".")? domSel : "f."+domSel;
+  const getV = (cf)=> pick.startsWith("f.")? cf.fields?.[pick.slice(2)] : cf.reflections?.[pick.slice(2)];
+  const labelFor = pick.startsWith("f.")? FIELDS.find(f=>"f."+f.k===pick)?.label : REFLECTIONS.find(r=>"r."+r.k===pick)?.q;
+  const tl = list.map(cf=>{ const st=confStatus(cf);
+    const goals=(cf.fields?.goals||"").trim(), next=(cf.fields?.nextSteps||"").trim(), str=(cf.fields?.strengths||"").trim();
+    return `<div class="tl-item"><div class="tl-when"><b>${esc(cf.term==="Historical"?"Earlier":confLabel(cf))}</b>${esc(fmtDate(cf.confDate)||"Date not set")}<div>${esc(ageAt(c.dob, cf.confDate||undefined))}</div></div>
+      <div class="tl-card"><div class="spread"><div class="row">${chip(st)}<span class="small muted">${esc(cf.teacher||"")}</span></div><div class="row"><span class="mono small muted">${filledCount(cf)}/${TOTAL_FIELDS}</span><button class="btn sm" data-go="conf" data-id="${esc(cf.id)}">Open</button></div></div>
+      ${str?`<div style="margin-top:10px"><div class="eyebrow">Strengths</div><p>${esc(str)}</p></div>`:""}
+      ${goals?`<div style="margin-top:10px"><div class="eyebrow">Shared goals</div><p>${esc(goals)}</p></div>`:""}
+      ${next?`<div style="margin-top:10px"><div class="eyebrow">Next steps</div><p>${esc(next)}</p></div>`:""}
+      ${cf.prevGoalsProgress?`<div style="margin-top:10px"><div class="eyebrow">Progress on earlier goals</div><p>${esc(cf.prevGoalsProgress)}</p></div>`:""}
+      </div></div>`; }).join("");
+  const withVal = list.filter(cf=>(getV(cf)||"").trim());
+  const p = periodConf(id);
+  return `
+  <div style="margin-bottom:6px"><a href="#" data-go="children" class="small">All children</a></div>
+  <div class="conf-head"><div class="who"><div class="eyebrow">${esc(c.classroom||"")} classroom</div><h1>${esc(childName(c))}</h1>
+    <div class="meta-line"><span>Born ${esc(fmtDate(c.dob))}</span><span>${esc(ageAt(c.dob))}</span>${c.program?`<span>${esc(c.program)}</span>`:""}${c.status==="withdrawn"?'<span class="chip st-withdrawn">Withdrawn</span>':""}</div></div>
+    <div class="row">${canEdit()?`<button class="btn" data-act="child-edit" data-id="${esc(id)}">Edit details</button>
+      <button class="btn" data-act="conf-new-additional" data-id="${esc(id)}">Add an extra conference</button>
+      <button class="btn primary" data-act="open-child-conf" data-id="${esc(id)}">${p?"Open":"Start"} ${esc(periodLabel(S.period))} conference</button>`:""}
+      ${list.length?`<button class="btn" data-act="docx-child" data-id="${esc(id)}">Download full record (Word)</button>`:""}</div>
+  </div>
+  <div class="split">
+    <div class="stack" style="min-width:0">
+      <h2>Conferences over time</h2>
+      ${list.length? `<div class="timeline">${tl}</div>` : `<div class="panel empty">No conferences yet. Start the ${esc(periodLabel(S.period))} conference to begin this child's record.</div>`}
+      ${list.length>0? `<div class="panel stack" style="gap:10px"><div class="spread"><h3>Compare one area across conferences</h3>
+        <select id="cmp" aria-label="Area to compare">${opts.map(([k,l])=>`<option value="${k}" ${k===pick?"selected":""}>${esc(l)}</option>`).join("")}</select></div>
+        <p class="small muted" style="margin:0">${esc(labelFor||"")}</p>
+        ${withVal.length? `<div class="compare">${withVal.map(cf=>`<div class="tl-card"><div class="eyebrow">${esc(confLabel(cf))}${cf.confDate?" · "+esc(ageAt(c.dob, cf.confDate)):""}</div><p>${esc(getV(cf))}</p></div>`).join("")}</div>` : `<p class="small muted">Nothing written in this area yet.</p>`}
+      </div>`:""}
+    </div>
+    <aside class="stack">
+      <div class="panel"><h3>Family</h3>
+        ${(c.parents||[]).length? (c.parents||[]).map(pr=>`<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>${esc(pr.name)}</b><div class="small muted mono" style="user-select:all">${esc(pr.cell||"")}</div><div class="small" style="user-select:all;overflow-wrap:anywhere">${esc(pr.email||"")}</div></div>`).join("") : `<p class="small muted">No family contacts on file.</p>`}
+      </div>
+      <div class="panel"><h3>On file</h3><dl class="kv">
+        <dt>Primary educator</dt><dd>${esc(c.primaryEducator||"Not set")}</dd>
+        <dt>Schedule</dt><dd>${esc(c.schedule||"")}</dd>
+        <dt>Enrolled</dt><dd>${esc(fmtDate(c.enrollDate))}</dd>
+        <dt>IEP/IFSP</dt><dd>${esc(c.ifsp||"None listed")}</dd>
+        ${c.notes?`<dt>Notes</dt><dd>${esc(c.notes)}</dd>`:""}
+      </dl></div>
+    </aside>
+  </div>`;
+}
+
+/* ---------- conference editor ---------- */
+function viewConf(id){
+  const cf=S.confs[id]; if(!cf) return `<div class="empty">This conference record was not found. <a href="#" data-go="overview">Back to overview</a></div>`;
+  const c=S.children[cf.childId]||{};
+  const prior=priorConf(cf);
+  const ro = !canEdit();
+  const dis = ro? "disabled":"";
+  const ta = (path, label, hint, extra="") => `<div class="field ${extra}" data-wrap="${path}"><label for="i-${path}">${esc(label)}</label>${hint?`<div class="hint">${esc(hint)}</div>`:""}<textarea id="i-${path}" data-k="${path}" ${dis} rows="3">${esc(getPath(cf,path)||"")}</textarea></div>`;
+  const domainBox = f => `<div class="domain ${f.full?"full":""}" style="${f.full?"grid-column:1/-1":""}">${ta("fields."+f.k, f.label, f.hint)}</div>`;
+  const st=confStatus(cf);
+  const educ = educatorsFor(c.classroom);
+  const fc = filledCount(cf);
+  const rooms=S.settings.classrooms;
+  return `
+  <div id="conf-editor" data-id="${esc(id)}">
+  <div style="margin-bottom:6px"><a href="#" data-go="child" data-id="${esc(cf.childId)}" class="small">${esc(childName(c))}'s record</a></div>
+  <div class="conf-head">
+    <div class="who"><div class="eyebrow">Family Conference · ${esc(confLabel(cf))}</div>
+      <h1>${esc(childName(c))}</h1>
+      <div class="meta-line"><span>${esc(c.classroom||"")} classroom</span><span>Born ${esc(fmtDate(c.dob))}</span><span>${esc(ageAt(c.dob, cf.confDate||undefined))}${cf.confDate?" at conference":""}</span></div></div>
+    <div class="row">
+      <span id="conf-chip">${chip(st)}</span>
+      <span class="save-state" id="save-state" aria-live="polite"></span>
+    </div>
+  </div>
+  ${ro?`<div class="notice" style="margin-bottom:14px">You have view-only access to this record.</div>`:""}
+  <div class="ed">
+    <div class="stack" style="min-width:0">
+      <div class="sheet">
+        <div class="sheet-sec">
+          <div class="sheet-title"><h2>Conference details</h2></div>
+          <div class="grid4">
+            <div class="field"><label for="i-confDate">Conference date</label><input type="date" id="i-confDate" data-k="confDate" value="${esc(cf.confDate||"")}" ${dis}></div>
+            <div class="field"><label for="i-confTime">Time</label><input type="time" id="i-confTime" data-k="confTime" value="${esc(cf.confTime||"")}" ${dis}></div>
+            <div class="field"><label for="i-format">Format</label><select id="i-format" data-k="format" ${dis}>${["","In person","Virtual","Phone"].map(o=>`<option ${cf.format===o?"selected":""} value="${o}">${o||"Choose"}</option>`).join("")}</select></div>
+            <div class="field"><label for="i-teacher">Teacher</label><input id="i-teacher" data-k="teacher" list="educator-list" value="${esc(cf.teacher||"")}" ${dis} autocomplete="off"><datalist id="educator-list">${[...new Set([...educ, ...educatorsFor()])].map(n=>`<option value="${esc(n)}">`).join("")}</datalist></div>
+          </div>
+          <p class="small muted" style="margin:10px 0 0">Developmental areas follow the DRDP domains. Teachers review the Family Questionnaire and current DRDP documentation before the conference.</p>
+        </div>
+        <div class="sheet-sec">
+          <div class="sheet-title"><h2>Teacher observations</h2><span class="small muted mono" id="fill-count">${fc}/${TOTAL_FIELDS} sections filled</span></div>
+          <div class="grid2">${FIELDS.map(domainBox).join("")}</div>
+        </div>
+        ${prior? `<div class="sheet-sec">
+          <div class="sheet-title"><h2>Progress on earlier goals</h2><a href="#" data-go="conf" data-id="${esc(prior.id)}" class="small">${esc(confLabel(prior))}</a></div>
+          ${(prior.fields?.goals||prior.fields?.nextSteps)?`<div class="grid2" style="margin-bottom:12px"><div><div class="eyebrow">Goals set then</div><div class="prior">${esc(prior.fields?.goals||"None written")}</div></div><div><div class="eyebrow">Next steps set then</div><div class="prior">${esc(prior.fields?.nextSteps||"None written")}</div></div></div>`:""}
+          ${ta("prevGoalsProgress","How did those goals go?","What grew, what is still in progress, and what the family noticed at home","full")}
+        </div>`:""}
+        <div class="sheet-sec">
+          <div class="sheet-title"><h2>Family Reflections</h2></div>
+          <p class="small muted" style="margin:-4px 0 12px">Completed together with the family during the conference. These questions build on the Family Questionnaire and focus on what has grown and changed since the start of the year.</p>
+          <div class="grid2" style="margin-bottom:14px">
+            <div class="field"><label for="i-familyPresent">Family members present</label><input id="i-familyPresent" data-k="familyPresent" value="${esc(cf.familyPresent||"")}" ${dis}></div>
+            <div class="field"><label for="i-reflDate">Date</label><input type="date" id="i-reflDate" data-k="reflDate" value="${esc(cf.reflDate||cf.confDate||"")}" ${dis}></div>
+          </div>
+          <div class="stack" style="gap:12px">${REFLECTIONS.map((r,i)=>`<div class="field" data-wrap="reflections.${r.k}"><label for="i-reflections.${r.k}"><span class="qnum">${i+1}.</span>${esc(r.q)}</label><textarea id="i-reflections.${r.k}" data-k="reflections.${r.k}" ${dis} rows="2">${esc(cf.reflections?.[r.k]||"")}</textarea></div>`).join("")}</div>
+        </div>
+        ${(cf.otherSections||"").trim()? `<div class="sheet-sec">
+          <div class="sheet-title"><h2>Other sections from the original form</h2><span class="small muted">From an older version of the form</span></div>
+          ${ta("otherSections","Sections that do not match the current template","Kept word for word under their original titles. Move anything that belongs in a section above, then clear it here.","full")}
+        </div>`:""}
+        <div class="sheet-sec">
+          <div class="sheet-title"><h2>Staff notes</h2><span class="small muted">Kept here only. Left out of the Word copy.</span></div>
+          ${ta("staffNotes","Notes for the teaching team","","full")}
+        </div>
+      </div>
+      <p class="small muted" style="margin:0"><i>Confidential. Kept in the child's file and shared only with the family and teaching team.</i></p>
+    </div>
+    <aside class="rail">
+      <div class="panel">
+        <h3>Progress</h3>
+        <div class="meter"><i id="meter" style="width:${fc/TOTAL_FIELDS*100}%"></i></div>
+        <div class="stack" style="gap:8px;margin-top:12px">
+          ${ro?"":`${cf.term==="Historical"?"":`<button class="btn primary" data-act="toggle-complete">${cf.status==="complete"?"Reopen conference":"Mark conference complete"}</button>`}
+          <button class="btn" data-act="import-form" data-conf="${esc(id)}">Fill from a completed form</button>`}
+          <button class="btn" data-act="docx-conf">Download Word copy</button>
+        </div>
+        <p class="small muted" id="last-edit" style="margin:10px 0 0"></p>
+      </div>
+      ${cf.term==="Historical"? `<div class="panel"><h3>Earlier conferences</h3><p class="small muted" style="margin:0">Forms whose date was unclear are kept here together, each labeled with whatever date was written. Use Move below if you work out the season for this record.</p></div>` : `<div class="panel">
+        <h3>Preparation</h3>
+        ${PREP.filter(p=>!p.needsPrior||prior).map(p=>`<label class="check"><input type="checkbox" data-k="prep.${p.k}" ${cf.prep?.[p.k]?"checked":""} ${dis}><span>${esc(p.label)}</span></label>`).join("")}
+      </div>
+      <div class="panel">
+        <h3>Follow-up</h3>
+        <div class="stack" style="gap:8px">
+          <div class="field"><label for="i-followUpDate">Check in again on</label><input type="date" id="i-followUpDate" data-k="followUpDate" value="${esc(cf.followUpDate||"")}" ${dis}></div>
+          <div class="field"><label for="i-followUpNote">About</label><input id="i-followUpNote" data-k="followUpNote" value="${esc(cf.followUpNote||"")}" ${dis} placeholder="Phone call about toileting plan"></div>
+          <label class="check"><input type="checkbox" data-k="followUpDone" ${cf.followUpDone?"checked":""} ${dis}><span>Follow-up done</span></label>
+        </div>
+      </div>`}
+      <div class="panel">
+        <h3>Original forms</h3>
+        <div id="attach-list">${attachList(cf)}</div>
+        ${!ro && S.assets? `<button class="btn sm" style="margin-top:8px" data-act="attach-only">Attach a file</button>`:""}
+      </div>
+      <div class="panel">
+        <details><summary>Conference guidelines</summary>
+          <ul class="guide" style="margin-top:10px">
+            <li>Conferences are 20-minute check-ins, offered twice a year to every family.</li>
+            <li>Schedule slots on Mondays. Afternoons work best.</li>
+            <li>Offer in-person or virtual so working families can attend.</li>
+            <li>Open with a positive observation and keep the tone collaborative.</li>
+            <li>Listen actively. Use clear language and specific examples.</li>
+            <li>Avoid labeling or diagnosing.</li>
+            <li>Balance strengths with challenges. Positive, challenge, positive.</li>
+            <li>Agree on goals together so they are realistic for school and home.</li>
+            <li>Offer resources if concerns continue and schedule a follow-up.</li>
+            <li>Bring Renee into the conversation whenever her perspective could help.</li>
+          </ul>
+        </details>
+      </div>
+      ${ro?"":`<div class="panel stack" style="gap:8px"><button class="btn sm" data-act="conf-move">Move to another child or season</button><button class="btn sm danger" data-act="conf-delete">Delete this conference record</button></div>`}
+    </aside>
+  </div></div>`;
+}
+function attachList(cf){
+  const a=cf.attachments||[];
+  if(!a.length) return `<p class="small muted" style="margin:0">Uploaded forms are kept here for reference.</p>`;
+  return a.map(x=>{ const url=blobUrl(x.id); const img=/^image\//.test(x.type||"");
+    return `<div class="attach">${img?`<img src="${esc(url)}" alt="">`:`<span class="mono small">${esc((x.name||"").split(".").pop().toUpperCase())}</span>`}<a href="${esc(url)}" target="_blank" rel="noopener">${esc(x.name||"File")}</a><span class="small muted">${esc(fmtDate(x.at,{month:"short",day:"numeric"}))}</span></div>`; }).join("");
+}
+
+/* autosave */
+const pending = new Map(); let saveTimer=null; let inflight=0;
+const dirty = new Set();
+function queueSave(path, val){
+  pending.set(path,val); dirty.add(path);
+  setSaveState("Saving…");
+  clearTimeout(saveTimer); saveTimer=setTimeout(flushAll, 900);
+}
+let saveChain=Promise.resolve();
+function flushAll(){
+  clearTimeout(saveTimer);
+  if(!pending.size || S.view.name!=="conf") { pending.clear(); return saveChain; }
+  const id=S.view.id; const patch={};
+  for(const [p,v] of pending) setPath(patch,p,v);
+  const keys=[...pending.keys()]; pending.clear();
+  patch.updatedAt=nowISO(); if(S.uid) patch.updatedBy=S.uid;
+  // one write at a time per conference, in the order they were typed
+  saveChain = saveChain.then(async()=>{
+    inflight++;
+    try{ await dbUpdate("conferences/"+id, patch); keys.forEach(k=>{ if(!pending.has(k)) dirty.delete(k); }); if(!pending.size) setSaveState("Saved"); }
+    catch(e){
+      if(S.view.name==="conf" && S.view.id===id){ keys.forEach(k=>{ if(!pending.has(k)) pending.set(k, getPath(patch,k)); }); setSaveState("Not saved. It will try again when you keep typing."); }
+      else toast("Your last changes to that conference did not save. Open it again and re-enter them.");
+    }
+    finally{ inflight--; }
+  });
+  return saveChain;
+}
+document.addEventListener("visibilitychange", ()=>{ if(document.hidden) flushAll(); });
+window.addEventListener("pagehide", ()=>flushAll());
+function setSaveState(t){ const el=$("#save-state"); if(el) el.textContent=t; }
+function grow(t){ t.style.height="auto"; t.style.height=Math.max(t.scrollHeight+2, 84)+"px"; }
+function afterConfRender(){
+  const ed=$("#conf-editor"); if(!ed) return;
+  $$("textarea",ed).forEach(grow);
+  ed.addEventListener("input", e=>{
+    const t=e.target; if(!t.dataset.k) return;
+    if(t.tagName==="TEXTAREA") grow(t);
+    const v = t.type==="checkbox"? t.checked : t.value;
+    queueSave(t.dataset.k, v);
+    if(t.dataset.k.startsWith("fields.")||t.dataset.k.startsWith("reflections.")) updateMeter();
+  });
+  ed.addEventListener("change", e=>{ const t=e.target; if(t.dataset.k && (t.type==="date"||t.tagName==="SELECT"||t.type==="checkbox"||t.type==="time")) flushAll(); });
+  ed.addEventListener("focusout", e=>{ if(e.target.dataset?.k) flushAll(); });
+  updateLastEdit();
+}
+function updateMeter(){
+  const vals={fields:{},reflections:{}};
+  $$("#conf-editor textarea[data-k]").forEach(t=>{ const [g,k]=t.dataset.k.split("."); if(vals[g]) vals[g][k]=t.value; });
+  const n=filledCount(vals); const m=$("#meter"); if(m) m.style.width=(n/TOTAL_FIELDS*100)+"%"; const fc=$("#fill-count"); if(fc) fc.textContent=`${n}/${TOTAL_FIELDS} sections filled`;
+}
+async function updateLastEdit(){
+  const cf=S.confs[S.view.id]; const el=$("#last-edit"); if(!cf||!el) return;
+  if(!cf.updatedAt){ el.textContent=""; return; }
+  await resolveNames([cf.updatedBy]);
+  el.textContent = `Last edited ${new Date(cf.updatedAt).toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})} by ${whoName(cf.updatedBy)}`;
+}
+function syncEditor(){
+  const cf=S.confs[S.view.id]; if(!cf){ render(); return; }
+  $$("#conf-editor [data-k]").forEach(el=>{
+    const k=el.dataset.k; if(document.activeElement===el || dirty.has(k)) return;
+    const v=getPath(cf,k);
+    if(el.type==="checkbox"){ el.checked=!!v; } else if((el.value||"")!==(v||"")){ el.value=v||""; if(el.tagName==="TEXTAREA") grow(el); }
+  });
+  const chipEl=$("#conf-chip"); if(chipEl) chipEl.innerHTML=chip(confStatus(cf));
+  const btn=$('[data-act="toggle-complete"]'); if(btn) btn.textContent= cf.status==="complete"?"Reopen conference":"Mark conference complete";
+  const al=$("#attach-list"); if(al) al.innerHTML=attachList(cf);
+  updateMeter(); updateLastEdit();
+}
+
+/* ---------- settings ---------- */
+function viewSettings(){
+  const s=S.settings;
+  return `<div style="max-width:760px" class="stack">
+  <div><div class="eyebrow">Setup</div><h1>Settings</h1></div>
+  <form id="settings-form" class="panel stack">
+    <div class="field"><label for="s-rooms">Classrooms</label><div class="hint">One per line</div><textarea id="s-rooms" rows="3" ${canEdit()?"":"disabled"}>${esc(s.classrooms.join("\n"))}</textarea></div>
+    <div class="field"><label for="s-years">School years</label><div class="hint">One per line, written like 2026-27. Each year has a Fall and a Spring season.</div><textarea id="s-years" rows="3" ${canEdit()?"":"disabled"}>${esc(s.years.join("\n"))}</textarea></div>
+    <div class="stack" style="gap:10px"><div class="lbl" style="font-weight:600">Educators by classroom</div><div class="hint small muted"><i>Names, separated by commas. These fill the Teacher and Primary educator suggestions.</i></div>
+      ${s.classrooms.map(r=>`<div class="field"><label for="s-ed-${esc(r)}">${esc(r)}</label><input id="s-ed-${esc(r)}" data-room="${esc(r)}" value="${esc((s.educators?.[r]||[]).join(", "))}" ${canEdit()?"":"disabled"}></div>`).join("")}
+    </div>
+    ${canEdit()?`<div class="row"><button class="btn primary" data-act="save-settings">Save settings</button></div>`:""}
+  </form>
+  <div class="panel stack">
+    <h3>Backups and exports</h3>
+    <p class="small muted" style="margin:0">Download everything as one file to keep a copy outside this page.</p>
+    <div class="row"><button class="btn" data-act="export-json">Download full backup (JSON)</button><button class="btn" data-act="export-csv-all">Download every conference (CSV)</button></div>
+  </div>
+  <div class="panel stack">
+    <h3>Roster</h3>
+    <p class="small muted" style="margin:0">Upload the Family Information Sheets PDF exported from 1Core. New children are added, changed details are updated, and children missing from the export can be marked withdrawn. Conference history is never removed.</p>
+    ${canEdit()?`<div class="row"><button class="btn" data-act="roster-import">Update from 1Core PDF</button></div>`:""}
+  </div></div>`;
+}
+
+/* ---------- filters binding ---------- */
+function bindFilters(){
+  const q=$("#f-q"); if(q) q.oninput=()=>{ S.filters.q=q.value; saveFilters(); render(); };
+  const r=$("#f-room"); if(r) r.onchange=()=>{ S.filters.room=r.value; saveFilters(); render(); };
+  const s=$("#f-status"); if(s) s.onchange=()=>{ S.filters.status=s.value; saveFilters(); render(); };
+  const p=$("#period"); if(p) p.onchange=()=>{ const [year,term]=p.value.split("|"); S.period={year,term}; render(); };
+  const cmp=$("#cmp"); if(cmp) cmp.onchange=()=>{ S.view.domain=cmp.value; render(); };
+}
+
+/* ---------- modal ---------- */
+function openModal(html, {wide=false}={}){
+  const root=$("#modal-root");
+  root.innerHTML=`<div class="scrim" id="scrim"><div class="modal ${wide?"wide":""}" role="dialog" aria-modal="true">${html}</div></div>`;
+  setTimeout(()=>{ const f=$(".modal input, .modal select, .modal textarea, .modal button", root); f?.focus(); },30);
+}
+function closeModal(){ $("#modal-root").innerHTML=""; S.modalCtl?.abort?.(); S.modalCtl=null; }
+document.addEventListener("keydown", e=>{
+  if(e.key==="Escape" && $("#scrim") && !$("#rv-rows") && !$("#child-form") && !$("#batch-table")) closeModal(); // never drop a form being reviewed or typed
+  if((e.key==="Enter"||e.key===" ") && e.target.matches?.("tr[data-act],tr[data-go]")){ e.preventDefault(); e.target.click(); }
+});
+
+/* ---------- actions ---------- */
+const actions = {
+  "show": a=>{ S.filters.show=a.dataset.v; saveFilters(); render(); },
+  "open-child-conf": async a=>{
+    const id=a.dataset.id; const ex=periodConf(id);
+    if(ex) return go("conf",{id:ex.id});
+    if(!canEdit()) return go("child",{id});
+    const cid = await createConf(id, S.period.year, S.period.term); if(cid) go("conf",{id:cid});
+  },
+  "conf-new-additional": async a=>{ const p=S.period; const cid=await createConf(a.dataset.id, p.year, "Additional"); if(cid) go("conf",{id:cid}); },
+  "toggle-complete": async ()=>{ await flushAll(); const cf=S.confs[S.view.id]; const done = cf.status!=="complete";
+    try{ await dbUpdate("conferences/"+cf.id, {status: done?"complete":"open", completedAt: done?nowISO():"", updatedAt:nowISO(), ...(S.uid?{updatedBy:S.uid}:{})}); toast(done?"Marked complete":"Reopened"); }catch(e){} },
+  "conf-delete": ()=>{
+    openModal(`<h2>Delete this conference record?</h2><p>All notes and family reflections in this record will be removed for everyone. Attached original files stay in storage.</p>
+    <div class="modal-foot"><button class="btn" data-act="close">Keep it</button><button class="btn primary" style="background:var(--danger);border-color:var(--danger)" data-act="conf-delete-yes">Delete record</button></div>`);
+  },
+  "conf-delete-yes": async ()=>{ const cf=S.confs[S.view.id]; const child=cf.childId; pending.clear(); try{ await dbDelete("conferences/"+cf.id); closeModal(); toast("Conference record deleted"); go("child",{id:child}); }catch(e){} },
+  "close": ()=>closeModal(),
+  "child-new": ()=>childForm(null),
+  "child-edit": a=>childForm(S.children[a.dataset.id]),
+  "child-save": ()=>saveChildForm(),
+  "save-settings": async ()=>{
+    const lines = v=>v.split(/\n/).map(s=>s.trim()).filter(Boolean);
+    const classrooms=lines($("#s-rooms").value); const years=lines($("#s-years").value).filter(y=>/^\d{4}-\d{2}$/.test(y));
+    if(!classrooms.length){ toast("Add at least one classroom"); return; }
+    if(!years.length){ toast("Write school years like 2026-27"); return; }
+    const educators={}; $$("[data-room]").forEach(i=>{ educators[i.dataset.room]=i.value.split(",").map(s=>s.trim()).filter(Boolean); });
+    classrooms.forEach(r=>{ if(!educators[r]) educators[r]=S.settings.educators?.[r]||[]; });
+    try{ await dbSet("settings/main",{classrooms,years,educators,updatedAt:nowISO()}); S.settings={...S.settings,classrooms,years,educators}; toast("Settings saved"); render(); }catch(e){}
+  },
+  "import-form": a=>openImport(a.dataset.conf||null),
+  "attach-only": ()=>openAttachOnly(),
+  "roster-import": ()=>openRosterImport(),
+  "docx-conf": async ()=>{ await flushAll(); const cf=S.confs[S.view.id]; await downloadDocx([cf], S.children[cf.childId]); },
+  "docx-child": async a=>{ const list=confsFor(a.dataset.id); await downloadDocx(list, S.children[a.dataset.id]); },
+  "export-csv": ()=>exportSeasonCSV(),
+  "export-csv-all": ()=>exportAllCSV(),
+  "export-json": ()=>saveFile(`fulton-conferences-backup-${new Date().toISOString().slice(0,10)}.json`, new Blob([JSON.stringify({exportedAt:nowISO(),settings:S.settings,children:S.children,conferences:S.confs},null,2)],{type:"application/json"})),
+};
+
+async function createConf(childId, year, term){
+  const id = term==="Historical"? `${childId}--historical` : term==="Additional"? `${childId}--${year}-add-${uid().slice(0,5)}` : `${childId}--${year}-${term.toLowerCase()}`;
+  const doc = {childId, schoolYear: term==="Historical"? "" : year, term, status:"open", fields:{}, reflections:{}, prep:{}, attachments:[], createdAt:nowISO(), updatedAt:nowISO(), ...(S.uid?{createdBy:S.uid,updatedBy:S.uid}:{})};
+  const c=S.children[childId]; if(c?.primaryEducator) doc.teacher=c.primaryEducator;
+  try{
+    // a co-teacher may have started this same conference a moment ago, so never overwrite it
+    const ex = await S.db.doc("conferences/"+id).get().catch(()=>null);
+    if(ex?.exists){ S.confs[id]={id,...ex.data()}; return id; }
+    await dbSet("conferences/"+id, doc); S.confs[id]={id,...doc}; return id;
+  }catch(e){ return null; }
+}
+
+/* ---------- child form ---------- */
+function childForm(c){
+  const isNew=!c; c=c||{parents:[{},{}],status:"active",classroom:S.settings.classrooms[0]};
+  const ps=[...(c.parents||[])]; while(ps.length<2) ps.push({});
+  const rooms=S.settings.classrooms;
+  openModal(`<h2>${isNew?"Add a child":"Edit "+esc(childName(c))}</h2>
+  <form id="child-form" class="stack" data-id="${esc(c.id||"")}">
+    <div class="grid3">
+      <div class="field"><label for="c-first">First name</label><input id="c-first" value="${esc(c.first||"")}" required></div>
+      <div class="field"><label for="c-last">Last name</label><input id="c-last" value="${esc(c.last||"")}"></div>
+      <div class="field"><label for="c-dob">Birthdate</label><input id="c-dob" type="date" value="${esc(c.dob||"")}"></div>
+      <div class="field"><label for="c-gender">Gender</label><input id="c-gender" value="${esc(c.gender||"")}"></div>
+      <div class="field"><label for="c-room">Classroom</label><select id="c-room">${rooms.map(r=>`<option ${c.classroom===r?"selected":""}>${esc(r)}</option>`).join("")}</select></div>
+      <div class="field"><label for="c-edu">Primary educator</label><input id="c-edu" list="c-edu-list" value="${esc(c.primaryEducator||"")}" autocomplete="off"><datalist id="c-edu-list">${educatorsFor().map(n=>`<option value="${esc(n)}">`).join("")}</datalist></div>
+      <div class="field"><label for="c-program">Program</label><input id="c-program" value="${esc(c.program||"")}"></div>
+      <div class="field"><label for="c-schedule">Schedule</label><input id="c-schedule" value="${esc(c.schedule||"")}" placeholder="M,Tu,W,Th,F"></div>
+      <div class="field"><label for="c-enroll">Enrollment date</label><input id="c-enroll" type="date" value="${esc(c.enrollDate||"")}"></div>
+    </div>
+    ${ps.map((p,i)=>`<div class="grid3"><div class="field"><label for="p${i}-name">Parent ${i+1}</label><input id="p${i}-name" value="${esc(p.name||"")}"></div><div class="field"><label for="p${i}-cell">Cell</label><input id="p${i}-cell" value="${esc(p.cell||"")}"></div><div class="field"><label for="p${i}-email">Email</label><input id="p${i}-email" type="email" value="${esc(p.email||"")}"></div></div>`).join("")}
+    <div class="field"><label for="c-ifsp">IEP/IFSP</label><input id="c-ifsp" value="${esc(c.ifsp||"")}"></div>
+    <div class="field"><label for="c-notes">Notes</label><textarea id="c-notes" rows="2">${esc(c.notes||"")}</textarea></div>
+    <div class="field"><label for="c-status">Enrollment</label><select id="c-status"><option value="active" ${c.status!=="withdrawn"?"selected":""}>Enrolled</option><option value="withdrawn" ${c.status==="withdrawn"?"selected":""}>Withdrawn (keeps conference history)</option></select></div>
+  </form>
+  <div class="modal-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="child-save">${isNew?"Add child":"Save changes"}</button></div>`);
+}
+async function saveChildForm(){
+  const f=$("#child-form"); const v=id=>$("#"+id).value.trim();
+  if(!v("c-first")){ toast("Add the child's first name"); $("#c-first").focus(); return; }
+  const parents=[0,1].map(i=>({name:v(`p${i}-name`),cell:v(`p${i}-cell`),email:v(`p${i}-email`)})).filter(p=>p.name||p.cell||p.email);
+  const data={first:v("c-first"),last:v("c-last"),dob:v("c-dob"),gender:v("c-gender"),classroom:v("c-room"),primaryEducator:v("c-edu"),program:v("c-program"),schedule:v("c-schedule"),enrollDate:v("c-enroll"),parents,ifsp:v("c-ifsp"),notes:v("c-notes"),status:v("c-status"),updatedAt:nowISO()};
+  let id=f.dataset.id;
+  try{
+    if(id){ const {id:_,...prev}=S.children[id]; await dbSet("children/"+id,{...prev,...data}); toast("Saved"); }
+    else { id=slug(data.first+" "+data.last)+"-"+(data.dob||"").replace(/-/g,""); if(S.children[id]) id+="-"+uid().slice(0,4); await dbSet("children/"+id,{...data,source:"manual",createdAt:nowISO()}); toast("Child added"); }
+    closeModal(); go("child",{id});
+  }catch(e){}
+}
+
+/* ---------- files ---------- */
+async function saveFile(filename, blob){
+  if(!S.downloads){ toast("Downloads are not available in this view"); return; }
+  try{ await S.downloads.save({filename, data:blob}); }
+  catch(e){ if(e?.code!=="cancelled" && e?.code!=="declined") toast("The file was not saved"); }
+}
+function csvCell(v){ v=String(v??""); return /[",\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; }
+function exportSeasonCSV(){
+  const rows=[["Child","Classroom","Primary educator","Status","Conference date","Time","Format","Teacher","Sections filled","Follow-up date"]];
+  activeChildren().sort((a,b)=>(a.classroom||"").localeCompare(b.classroom||"")||(a.last||"").localeCompare(b.last||"")).forEach(c=>{ const cf=periodConf(c.id);
+    rows.push([childName(c),c.classroom,c.primaryEducator,confStatus(cf).label,cf?.confDate,cf?.confTime,cf?.format,cf?.teacher,cf?filledCount(cf)+"/"+TOTAL_FIELDS:"",cf?.followUpDate]); });
+  saveFile(`conferences-${S.period.term.toLowerCase()}-${S.period.year}.csv`, new Blob([rows.map(r=>r.map(csvCell).join(",")).join("\n")],{type:"text/csv"}));
+}
+function exportAllCSV(){
+  const head=["Child","Classroom","School year","Season","Status","Conference date","Teacher","Family present",...FIELDS.map(f=>f.label),"Progress on earlier goals",...REFLECTIONS.map((r,i)=>"Reflection "+(i+1)),"Other sections from the original form"];
+  const rows=[head];
+  Object.values(S.confs).sort(confSort).forEach(cf=>{ const c=S.children[cf.childId];
+    rows.push([childName(c),c?.classroom,cf.schoolYear,cf.term,confStatus(cf).label,cf.confDate,cf.teacher,cf.familyPresent,...FIELDS.map(f=>cf.fields?.[f.k]),cf.prevGoalsProgress,...REFLECTIONS.map(r=>cf.reflections?.[r.k]),cf.otherSections]); });
+  saveFile(`all-conferences-${new Date().toISOString().slice(0,10)}.csv`, new Blob([rows.map(r=>r.map(csvCell).join(",")).join("\n")],{type:"text/csv"}));
+}
+
+/* ---------- Word export ---------- */
+async function downloadDocx(list, child){
+  if(!list.length){ toast("No conferences to include"); return; }
+  toast("Preparing the Word file…");
+  try{ await loadScript("https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"); }catch(e){ toast("The Word builder could not load. Check your connection."); return; }
+  const D=window.docx;
+  const GREEN="E4ECE6";
+  const border={style:D.BorderStyle.SINGLE,size:4,color:"9AA79E"};
+  const borders={top:border,bottom:border,left:border,right:border};
+  const paras=(t,opts={})=>{ const lines=String(t||"").split(/\n/); return lines.map(l=>new D.Paragraph({spacing:{after:40},children:[new D.TextRun({text:l,size:20,...opts})]})); };
+  const labelCell=(label,hint,span=1)=>new D.TableCell({borders,columnSpan:span,shading:{type:D.ShadingType.CLEAR,color:"auto",fill:GREEN},width:{size:20,type:D.WidthType.PERCENTAGE},margins:{top:80,bottom:80,left:100,right:100},
+    children:[new D.Paragraph({children:[new D.TextRun({text:label,bold:true,size:20})]}), ...(hint?[new D.Paragraph({children:[new D.TextRun({text:hint,italics:true,size:16,color:"55625A"})]})]:[])]});
+  const valCell=(t,span=1,w=30)=>new D.TableCell({borders,columnSpan:span,width:{size:w,type:D.WidthType.PERCENTAGE},margins:{top:80,bottom:80,left:100,right:100},children:paras(t)});
+  const sections=[];
+  for(const cf of list){
+    const rows=[];
+    rows.push(new D.TableRow({children:[labelCell("Date"),valCell(fmtDate(cf.confDate)),labelCell("Child"),valCell(childName(child))]}));
+    rows.push(new D.TableRow({children:[labelCell("Birthdate"),valCell(fmtDate(child?.dob)),labelCell("Age"),valCell(ageAt(child?.dob,cf.confDate||undefined))]}));
+    for(let i=0;i<FIELDS.length;i++){
+      const f=FIELDS[i];
+      if(f.full){ rows.push(new D.TableRow({children:[labelCell(f.label,f.hint),valCell(cf.fields?.[f.k],3,80)]})); }
+      else { const g=FIELDS[i+1]; rows.push(new D.TableRow({children:[labelCell(f.label,f.hint),valCell(cf.fields?.[f.k]),labelCell(g.label,g.hint),valCell(cf.fields?.[g.k])]})); i++; }
+    }
+    if(cf.prevGoalsProgress) rows.push(new D.TableRow({children:[labelCell("Progress on earlier goals"),valCell(cf.prevGoalsProgress,3,80)]}));
+    if((cf.otherSections||"").trim()) rows.push(new D.TableRow({children:[labelCell("Other sections from the original form"),valCell(cf.otherSections,3,80)]}));
+    const refRows=[new D.TableRow({children:[labelCell("Child"),valCell(childName(child),1,30),labelCell("Family Members Present"),valCell(cf.familyPresent)]}),
+      new D.TableRow({children:[labelCell("Date"),valCell(fmtDate(cf.reflDate||cf.confDate),3,80)]}),
+      ...REFLECTIONS.map((r,i)=>new D.TableRow({children:[new D.TableCell({borders,columnSpan:4,margins:{top:80,bottom:100,left:100,right:100},children:[new D.Paragraph({spacing:{after:60},children:[new D.TextRun({text:`${i+1}. ${r.q}`,bold:true,size:20})]}),...paras(cf.reflections?.[r.k])]})]}))];
+    const title=(t)=>new D.Paragraph({spacing:{after:120},children:[new D.TextRun({text:t,bold:true,size:30,font:"Georgia"})]});
+    const conf=(t)=>new D.Paragraph({spacing:{before:160},children:[new D.TextRun({text:t,italics:true,size:16})]});
+    const CONF="Confidential. Kept in the child's file and shared only with the family and teaching team.";
+    sections.push({properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},children:[
+      new D.Paragraph({children:[new D.TextRun({text:"Fulton Community School & Farm",size:18,color:"55625A"})]}),
+      title(`Family Conference · ${confLabel(cf)}`),
+      new D.Paragraph({spacing:{after:80},children:[new D.TextRun({text:"Conference Date and Time  ",bold:true,size:20}),new D.TextRun({text:[fmtDate(cf.confDate),fmtTime(cf.confTime),cf.format].filter(Boolean).join(", ")||"________________",size:20}),new D.TextRun({text:"     Teacher  ",bold:true,size:20}),new D.TextRun({text:cf.teacher||"________________",size:20})]}),
+      new D.Paragraph({spacing:{after:120},children:[new D.TextRun({text:"Developmental areas follow the DRDP domains. Teachers review the Family Questionnaire and current DRDP documentation before the conference.",italics:true,size:16})]}),
+      new D.Table({width:{size:100,type:D.WidthType.PERCENTAGE},rows}),
+      conf(CONF),
+      new D.Paragraph({pageBreakBefore:true,children:[]}),
+      title("Family Reflections"),
+      new D.Paragraph({spacing:{after:120},children:[new D.TextRun({text:"Completed together with the family during the conference. These questions build on the Family Questionnaire and focus on what has grown and changed since the start of the year.",size:18})]}),
+      new D.Table({width:{size:100,type:D.WidthType.PERCENTAGE},rows:refRows}),
+      conf(CONF),
+    ]});
+  }
+  const doc=new D.Document({creator:"Fulton Community School & Farm",title:"Family Conference",styles:{default:{document:{run:{font:"Calibri"}}}},sections});
+  const blob=await D.Packer.toBlob(doc);
+  const base=slug(childName(child));
+  await saveFile(list.length===1? `${base}-conference-${list[0].term.toLowerCase()}-${list[0].schoolYear}.docx` : `${base}-conference-record.docx`, blob);
+}
+
+/* ---------- reading uploaded files ---------- */
+const PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+const PDFJS_WORKER="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+async function loadPdfjs(){ await loadScript(PDFJS); await loadScript(PDFJS_WORKER); return window.pdfjsLib; }
+async function readPdf(file, {maxImagePages=4}={}){
+  const lib=await loadPdfjs();
+  const doc=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  let text=""; const pages=[], pageTexts=[];
+  for(let p=1;p<=doc.numPages;p++){ const pg=await doc.getPage(p); const vp=pg.getViewport({scale:1}); const tc=await pg.getTextContent();
+    pages.push({width:vp.width,items:tc.items.map(i=>({str:i.str,x:i.transform[4],y:vp.height-i.transform[5]}))});
+    const t = tc.items.map(i=>i.str+(i.hasEOL?"\n":" ")).join(""); pageTexts.push(t); text += t+"\n\n"; }
+  return {doc, text, pages, pageTexts};
+}
+async function pdfToImages(doc, max=4){
+  const out=[];
+  for(let p=1;p<=Math.min(doc.numPages,max);p++){ const pg=await doc.getPage(p); const vp0=pg.getViewport({scale:1}); const scale=Math.min(2.2, 1700/vp0.width); const vp=pg.getViewport({scale});
+    const cv=document.createElement("canvas"); cv.width=vp.width; cv.height=vp.height; const ctx=cv.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,cv.width,cv.height);
+    await pg.render({canvasContext:ctx,viewport:vp}).promise; out.push(await new Promise(r=>cv.toBlob(r,"image/jpeg",.88))); }
+  return out;
+}
+async function pageImage(doc, p, width=1700){
+  const pg=await doc.getPage(p); const vp0=pg.getViewport({scale:1}); const vp=pg.getViewport({scale:Math.min(2.2, width/vp0.width)});
+  const cv=document.createElement("canvas"); cv.width=vp.width; cv.height=vp.height; const c=cv.getContext("2d"); c.fillStyle="#fff"; c.fillRect(0,0,cv.width,cv.height);
+  await pg.render({canvasContext:c,viewport:vp}).promise; return await new Promise(r=>cv.toBlob(r,"image/jpeg",.86));
+}
+async function shrinkImage(blob, width=900){
+  const bmp=await createImageBitmap(blob); const s=Math.min(1,width/Math.max(bmp.width,bmp.height));
+  const cv=document.createElement("canvas"); cv.width=Math.round(bmp.width*s); cv.height=Math.round(bmp.height*s); cv.getContext("2d").drawImage(bmp,0,0,cv.width,cv.height);
+  return await new Promise(r=>cv.toBlob(r,"image/jpeg",.8));
+}
+async function readDocx(file){
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js");
+  const r=await window.mammoth.convertToHtml({arrayBuffer:await file.arrayBuffer()});
+  const div=document.createElement("div"); div.innerHTML=r.value;
+  $$("td,th",div).forEach(td=>td.append(" | ")); $$("tr,p,li,h1,h2,h3",div).forEach(el=>el.append("\n"));
+  return div.textContent.replace(/\n{3,}/g,"\n\n");
+}
+async function normalizeImage(file, limits){
+  const okTypes=limits?.images?.mediaTypes||["image/jpeg","image/png","image/webp","image/gif"];
+  const maxB=limits?.images?.maxInputBytes||20e6;
+  if(okTypes.includes(file.type) && file.size<=maxB && file.size<8e6) return file;
+  let bmp; try{ bmp=await createImageBitmap(file); }catch(e){ throw new Error("This photo format cannot be read here. Save or export it as a JPEG or PNG, then upload it again."); }
+  const s=Math.min(1, 2400/Math.max(bmp.width,bmp.height)); const cv=document.createElement("canvas"); cv.width=Math.round(bmp.width*s); cv.height=Math.round(bmp.height*s);
+  cv.getContext("2d").drawImage(bmp,0,0,cv.width,cv.height); return await new Promise(r=>cv.toBlob(r,"image/jpeg",.9));
+}
+
+/* ---------- fill from completed form ---------- */
+function extractionPrompt(text){
+  const keys = FIELDS.map(f=>`  "${f.k}": section "${f.label}" (${f.hint||"free text"})`).join("\n");
+  const refs = REFLECTIONS.map((r,i)=>`  "${r.k}": question ${i+1}, "${r.q}"`).join("\n");
+  return `You are reading a completed Family Conference form from Fulton Community School & Farm, a preschool. The form may be handwritten, typed, photographed, scanned, or converted from a Word document. Transcribe what is written in each section of the form.
+
+Rules
+- Copy the writer's words faithfully. Keep their wording, spelling of names, and line breaks between separate thoughts. Do not summarize, rewrite, or add anything.
+- Use an empty string for any section that is blank or missing.
+- If a word cannot be read, write [illegible] in its place.
+- Text printed on the blank template (section titles and the italic prompts under them) is not an answer. Leave it out.
+- The form may be an older version from a previous school year, with different section names, a different order, or fewer or extra sections. Put each answer into the current section that matches it in meaning. For example, Social Development goes in social, Interests goes in interests, Goals goes in goals, and questions the family answered go in the closest reflection question.
+- Never drop writing. Anything that fits no current section goes in otherSections, each piece starting with the original section title, like "Self-help skills. Uses the bathroom on her own." with a blank line between pieces.
+- Two older layouts are common. Map them this way. Child's Learning Style goes in approaches. Friends or Interacts with most goes in friends. Main interests goes in interests. Favorite Area and Activity goes in favoriteAreas. Strengths goes in strengths. Goals, Areas to explore further, and any At school or At home goals go in goals, keeping the words At school and At home in front of each part. Questions the family asked go in r6. Updates the family shared about home go in r1. Parent names written at the top, like Mom and Dad, go in familyMembersPresent and parentNames.
+- Notes written in the margins or outside the boxes go in otherSections, starting with Margin notes. Only include notes that carry meaning about the child or family. Leave out anything already captured elsewhere, such as parent names, times, ages, dates and page numbers. Leave out printed headings, stray single letters or symbols, and descriptions of where something was written.
+- The Date box sometimes holds only a time, like 3:30 or 9:00. Put that in conferenceTime, not the date.
+- Ages are often written next to the birthdate, like 3y 6m. Report that age in months in ageMonths, so 3y 6m is 42.
+- If a section on the form clearly holds two current areas, such as Language and Cognition together, put the text in the first one and say so in notes.
+- Dates as YYYY-MM-DD only when the year is written on the form. Otherwise copy the date exactly as written, and also fill conferenceMonth, conferenceDay and conferenceYear with numbers for whatever parts are written, leaving the rest null. Never guess a year. Times as HH:MM in 24-hour time.
+
+Reply with only one JSON object in this exact shape
+{
+ "childName": "",
+ "birthdate": "",
+ "conferenceDate": "",
+ "conferenceTime": "",
+ "teacher": "",
+ "familyMembersPresent": "",
+ "reflectionsDate": "",
+ "fields": { ${FIELDS.map(f=>`"${f.k}": ""`).join(", ")} },
+ "reflections": { ${REFLECTIONS.map(r=>`"${r.k}": ""`).join(", ")} },
+ "readability": "clear | partly unclear | hard to read",
+ "otherSections": "",
+ "conferenceMonth": null,
+ "conferenceDay": null,
+ "conferenceYear": null,
+ "ageMonths": null,
+ "parentNames": "",
+ "formVersion": "current template | older version",
+ "notes": "anything the reviewer should double-check, including how older sections were matched"
+}
+
+Where each key comes from on the form
+${keys}
+Family Reflections page
+${refs}
+${text? "\n\nThe document text follows, extracted from the file. Table cells are separated by | characters.\n\n<<<\n"+text.slice(0,120000)+"\n>>>" : "\n\nThe form is in the attached image(s), in page order."}`;
+}
+function bestChildMatch(name, dob, parents){
+  const norm=s=>String(s||"").toLowerCase().normalize("NFKD").replace(/[^a-z ]/g," ").replace(/\s+/g," ").trim();
+  const n=norm(name); if(!n && !dob) return null;
+  const toks=n.split(" ").filter(Boolean);
+  const ptoks=norm(parents).split(" ").filter(t=>t.length>2 && !["mom","dad","mother","father"].includes(t));
+  const kids=Object.values(S.children);
+  // a short name like Che counts when it starts exactly one child's first name
+  const firstTok=toks[0]||""; const prefixHits=firstTok.length>=3? kids.filter(c=>norm(c.first).startsWith(firstTok)) : [];
+  let best=null, bs=0, second=0;
+  for(const c of kids){
+    const cn=norm(childName(c)); const ct=cn.split(" ");
+    let s=0; if(cn===n) s+=10;
+    toks.forEach(t=>{ if(ct.includes(t)) s+=3; else if(t.length>2 && ct.some(x=>x.startsWith(t)||t.startsWith(x))) s+=1; });
+    if(prefixHits.length===1 && prefixHits[0]===c && !ct.includes(firstTok)) s+=2;
+    const d=toISODate(dob); if(d && c.dob===d) s+=5;
+    const pn=norm((c.parents||[]).map(p=>p.name).join(" ")).split(" ");
+    ptoks.forEach(t=>{ if(pn.includes(t)) s+=2; });
+    if(c.status==="withdrawn") s-=.5;
+    if(s>bs){ second=bs; bs=s; best=c; } else if(s>second) second=s;
+  }
+  return bs>=3 && bs>second? best : null;
+}
+
+function openImport(confId){
+  if(!canEdit()) return;
+  const cf=confId? S.confs[confId] : null;
+  const ctx = {confId, file:null, result:null};
+  S.importCtx=ctx;
+  openModal(`<div class="spread"><h2>Fill from a completed form</h2>${cf?`<span class="small muted">Into ${esc(childName(S.children[cf.childId]))}'s ${esc(confLabel(cf))} record</span>`:""}</div>
+    <p class="small muted" style="margin:0">Upload a photo or scan of a paper form, a PDF, or the Word version of the conference template. Claude reads it and fills in each section. You review everything before it is saved.${cf?"":" For several children at once, upload one PDF holding all the forms, or choose several photos together."}</p>
+    <label class="drop" id="drop" for="imp-file"><b>Choose ${cf?"a file":"files"} or drop ${cf?"it":"them"} here</b><div class="small muted">JPEG, PNG, PDF, or DOCX</div></label>
+    <input type="file" id="imp-file" ${cf?"":"multiple"} accept="image/*,.pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.txt" hidden>
+    <div id="imp-status"></div>
+    <div class="modal-foot" id="imp-foot"><button class="btn" data-act="close">Cancel</button></div>`, {wide:true});
+  const inp=$("#imp-file"), drop=$("#drop");
+  inp.onchange=()=>inp.files.length && handleImportFiles([...inp.files]);
+  drop.ondragover=e=>{ e.preventDefault(); drop.classList.add("over"); };
+  drop.ondragleave=()=>drop.classList.remove("over");
+  drop.ondrop=e=>{ e.preventDefault(); drop.classList.remove("over"); const fs=[...e.dataTransfer.files]; if(fs.length) handleImportFiles(fs); };
+}
+async function handleImportFiles(files){
+  const ctx=S.importCtx;
+  if(ctx.confId || files.length===1){
+    const f=files[0];
+    if(!ctx.confId && /\.pdf$/i.test(f.name)||(!ctx.confId && f.type==="application/pdf")){
+      try{ impStatus(`<div class="progress-note"><span class="spinner"></span><span>Opening ${esc(f.name)}…</span></div>`);
+        const r=await readPdf(f); if(r.doc.numPages>=3) return runBatch([f], r); }catch(e){}
+    }
+    if(files.length>1) toast("Only the first file is used when filling one conference");
+    return runImport(f);
+  }
+  const imgs=files.filter(f=>f.type.startsWith("image/")||/\.(heic|heif|jpe?g|png|webp)$/i.test(f.name));
+  if(imgs.length!==files.length){ impStatus(`<div class="notice">To read several forms at once, choose photos only, or put all the forms into one PDF.</div>`); return; }
+  runBatch(imgs);
+}
+function impStatus(html){ const el=$("#imp-status"); if(el) el.innerHTML=html; const f=$("#imp-foot"); if(f) f.hidden=/modal-foot/.test(html); }
+async function runImport(file, opt={}){
+  const ctx=S.importCtx; ctx.file=file; ctx.careful=!!opt.careful;
+  const busy=t=>impStatus(`<div class="progress-note"><span class="spinner"></span><span>${esc(t)}</span><button class="btn sm" style="margin-left:auto" data-act="close">Stop</button></div>`);
+  if(!S.sample){ impStatus(`<div class="notice">Reading forms needs Claude, which is not available in this view. You can still attach the file to a conference from its Original forms panel.</div>`); return; }
+  const ctl=new AbortController(); S.modalCtl=ctl;
+  try{
+    busy("Opening "+file.name+"…");
+    let text="", images=[];
+    const limits=await S.sample.limits().catch(()=>null);
+    const name=file.name.toLowerCase();
+    if(file.type==="application/pdf"||name.endsWith(".pdf")){
+      const r=await readPdf(file); const real=r.text.replace(/\s+/g," ").trim();
+      if(real.length>200) text=r.text; else { busy("Turning scanned pages into images…"); images=await pdfToImages(r.doc, limits?.images?.maxCount? Math.min(4,limits.images.maxCount):4); }
+    } else if(name.endsWith(".docx")){ text=await readDocx(file); }
+    else if(name.endsWith(".doc")){ throw new Error("Older .doc files cannot be read here. Open it in Word and save it as .docx or PDF, then upload that."); }
+    else if(file.type.startsWith("image/")||/\.(heic|heif)$/.test(name)){ images=[await normalizeImage(file, limits)]; ctx.keepBlob = images[0]!==file ? images[0] : null; }
+    else if(file.type.startsWith("text/")){ text=await file.text(); }
+    else throw new Error("This file type cannot be read. Upload a photo, PDF, or DOCX.");
+    if(images.length && !limits?.images){ throw new Error("Reading photos is not available in this view. Upload the Word or PDF version instead."); }
+    busy(images.length? "Claude is reading the handwriting. This can take up to a minute…" : "Claude is reading the form…");
+    const res=await S.sample.json(extractionPrompt(text), {signal:ctl.signal, ...(images.length?{images}:{}), modelTier:"default", ...(opt.careful?{careful:true}:{})});
+    if(!res || typeof res!=="object") throw new Error("The form could not be read. Try a clearer photo.");
+    ctx.result=res; showReview();
+  }catch(e){
+    if(e?.code==="cancelled") return;
+    const msg = e?.code==="not_granted"? "Claude was not allowed for this page, so the form could not be read."
+      : e?.code==="rate_limited"? "Claude is busy right now. Wait a minute and try again."
+      : e?.code==="image_rejected"? "That image could not be used. Try a smaller JPEG or PNG."
+      : e?.code==="invalid_json"? "The reply could not be turned into form sections. Try again, or try a clearer photo."
+      : e?.code==="refused"? "Claude could not read this file. Check that it is a conference form."
+      : e?.code? "The form could not be read this time. Try again in a moment."
+      : (e?.message||"The form could not be read.");
+    impStatus(`<div class="notice">${esc(msg)}</div>`);
+  }
+}
+function showReview(){
+  const ctx=S.importCtx, r=ctx.result;
+  let target = ctx.confId? S.confs[ctx.confId] : null;
+  const match = target? S.children[target.childId] : bestChildMatch(r.childName, r.birthdate, r.parentNames||r.familyMembersPresent);
+  const pd = inferSeason(r, match); ctx.inferred=pd;
+  const kids=Object.values(S.children).sort((a,b)=>childName(a).localeCompare(childName(b)));
+  const yearsOpts=[...new Set([...(S.settings.years||[]), pd.year])].sort();
+  const row=(path,label,val)=>{ const cur=target? (getPath(target,path)||"") : "";
+    const def = !String(val||"").trim()? "skip" : cur.trim()? "append" : "replace";
+    return `<div class="review-row" data-path="${esc(path)}"><div><b class="small">${esc(label)}</b></div>
+      <div><textarea aria-label="${esc(label)}">${esc(val||"")}</textarea>${cur.trim()?`<div class="cur">Already in the record · ${esc(cur.slice(0,240))}${cur.length>240?"…":""}</div>`:""}</div>
+      <div><select aria-label="What to do with ${esc(label)}"><option value="replace" ${def==="replace"?"selected":""}>Use this</option><option value="append" ${def==="append"?"selected":""}>Add below existing</option><option value="skip" ${def==="skip"?"selected":""}>Skip</option></select></div></div>`; };
+  const metaRows = [
+    ["confDate","Conference date", toISODate(r.conferenceDate)||pd.date||r.conferenceDate],["confTime","Time",r.conferenceTime],["teacher","Teacher",r.teacher],
+    ["familyPresent","Family members present",r.familyMembersPresent],["reflDate","Reflections date",toISODate(r.reflectionsDate)||r.reflectionsDate]];
+  impStatus(`
+    <div class="notice" style="margin-bottom:10px">${window.CAREFUL_READ && !ctx.careful?`<button class="btn sm" style="float:right;margin-left:10px" data-act="reread-careful">Read again more carefully</button>`:""}<b>Review before saving.</b> ${r.formVersion&&/older/i.test(r.formVersion)?"This is an older version of the form, so sections were matched by meaning. ":""}Readability ${esc(r.readability||"not rated")}. ${esc(r.notes||"")}</div>
+    ${target? "" : `<div class="grid3" style="margin-bottom:6px">
+      <div class="field"><label for="rv-child">Child</label><select id="rv-child"><option value="">Choose a child</option>${kids.map(c=>`<option value="${esc(c.id)}" ${match?.id===c.id?"selected":""}>${esc(childName(c))}${c.classroom?" · "+esc(c.classroom):""}</option>`).join("")}</select>
+        <div class="hint">Form says ${esc(r.childName||"no name")}${r.birthdate?", born "+esc(r.birthdate):""}</div></div>
+      <div class="field"><label for="rv-year">School year</label><select id="rv-year">${yearsOpts.map(y=>`<option ${y===pd.year?"selected":""}>${esc(y)}</option>`).join("")}</select></div>
+      <div class="field"><label for="rv-term">Season</label><select id="rv-term">${["Fall","Spring","Additional","Historical"].map(t=>`<option value="${t}" ${t===pd.term?"selected":""}>${t==="Historical"?"Earlier, date unknown":t}</option>`).join("")}</select>${seasonNote(pd.how)?`<div class="hint">${esc(seasonNote(pd.how))}</div>`:""}</div>
+    </div><p class="small muted" style="margin:0 0 6px">If this child already has a conference for that season, the sections are added to it.</p>`}
+    <div id="rv-rows">
+      ${metaRows.map(([k,l,v])=>row(k,l,v)).join("")}
+      ${FIELDS.map(f=>row("fields."+f.k,f.label,r.fields?.[f.k])).join("")}
+      ${REFLECTIONS.map((q,i)=>row("reflections."+q.k,`Reflection ${i+1}`,r.reflections?.[q.k])).join("")}
+      ${row("otherSections","Other sections from the original form",r.otherSections)}
+    </div>
+    <label class="check" ${S.assets?"":"hidden"}><input type="checkbox" id="rv-keep" checked><span>Keep the original file with this conference</span></label>
+    <div class="modal-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="rv-apply">Save to conference</button></div>`);
+  $("#rv-apply").onclick=applyReview;
+}
+async function applyReview(){
+  const ctx=S.importCtx; const btn=$("#rv-apply"); btn.disabled=true; btn.textContent="Saving…";
+  try{
+    let confId=ctx.confId;
+    if(!confId){
+      const childId=$("#rv-child").value; if(!childId){ toast("Choose which child this form belongs to"); btn.disabled=false; btn.textContent="Save to conference"; return; }
+      const year=$("#rv-year").value, term=$("#rv-term").value;
+      const ex = findConf(childId, year, term);
+      confId = ex? ex.id : await createConf(childId, year, term);
+      if(!confId) throw new Error("create");
+    }
+    const target=S.confs[confId]||{};
+    const patch={};
+    $$("#rv-rows .review-row").forEach(rw=>{
+      const path=rw.dataset.path, mode=$("select",rw).value, val=$("textarea",rw).value.trim();
+      if(mode==="skip"||!val) return;
+      const cur=(getPath(target,path)||"").trim();
+      let out=val;
+      if((path==="confDate"||path==="reflDate")){ out=toISODate(val); if(!out) return; }
+      if(path==="confTime"){ out=parseTime(val); if(!out) return; }
+      const single=["confDate","reflDate","confTime"].includes(path);
+      // when the reviewer could not see what was already saved, never replace it silently
+      const effective = (!ctx.confId && cur && mode==="replace" && !single)? "append" : mode;
+      if(effective==="append" && cur && !single){ if(cur.includes(val)) return; out=cur+"\n\n"+val; }
+      setPath(patch,path,out);
+    });
+    if($("#rv-keep")?.checked && S.assets && ctx.file){
+      const keep = ctx.keepBlob || ctx.file;
+      if(/\.docx$/i.test(ctx.file.name)) toast("Sections saved. Word files cannot be kept as originals, so save it as PDF if you want it attached.");
+      else try{ const up=await S.assets.upload(keep); patch.attachments=[...(target.attachments||[]), {id:up.id,name:ctx.file.name,type:up.contentType||keep.type,at:nowISO(),...(S.uid?{by:S.uid}:{})}]; }
+      catch(e){ toast("Sections saved. The original file could not be kept with the conference."); }
+    }
+    patch.updatedAt=nowISO(); if(S.uid) patch.updatedBy=S.uid; patch.importedFrom=ctx.file?.name||"";
+    await dbUpdate("conferences/"+confId, patch);
+    closeModal(); toast("Form sections saved"); go("conf",{id:confId});
+  }catch(e){ btn.disabled=false; btn.textContent="Save to conference"; }
+}
+/* ---------- batch: many forms in one PDF or several photos ---------- */
+function pageKindFromText(t){
+  if(/Main\s+Interests|Conference\s+Date\s+and\s+Time|Small\s+Group\s+Work\s+and\s+Current\s+Inquiry/i.test(t)) return "conference";
+  if(/Family\s+Reflections/i.test(t) || /What are you noticing about your child at home/i.test(t)) return "reflections";
+  return t.replace(/\s/g,"").length>40? "continuation" : "other";
+}
+function namesCompatible(a,b){
+  const tok=s=>String(s||"").toLowerCase().replace(/[^a-z ]/g," ").split(/\s+/).filter(x=>x.length>1);
+  const A=tok(a), B=tok(b); if(!A.length||!B.length) return true;
+  return A.some(x=>B.some(y=>x===y||x.startsWith(y)||y.startsWith(x)));
+}
+function groupPages(infos){
+  const forms=[], skipped=[]; let cur=null;
+  const start=(p,refl)=>{ cur={pages:[p.n], name:p.childName||"", hasRefl:refl}; forms.push(cur); };
+  for(const p of infos){
+    if(p.kind==="conference") start(p,false);
+    else if(p.kind==="reflections"){
+      if(cur && !cur.hasRefl && namesCompatible(cur.name,p.childName)){ cur.pages.push(p.n); cur.hasRefl=true; if(!cur.name) cur.name=p.childName||""; }
+      else start(p,true);
+    }
+    else if(p.kind==="continuation"){ if(cur) cur.pages.push(p.n); else start(p,false); }
+    else skipped.push(p.n);
+  }
+  return {forms, skipped};
+}
+function pageRange(pages){ return pages.length===1? `Page ${pages[0]}` : `Pages ${pages[0]} to ${pages[pages.length-1]}`; }
+
+async function runBatch(files, preread){
+  const ctx=S.importCtx; const ctl=new AbortController(); S.modalCtl=ctl;
+  const busy=t=>impStatus(`<div class="progress-note"><span class="spinner"></span><span>${esc(t)}</span><button class="btn sm" style="margin-left:auto" data-act="close">Stop</button></div>`);
+  if(!S.sample){ impStatus(`<div class="notice">Reading forms needs Claude, which is not available in this view.</div>`); return; }
+  const limits=await S.sample.limits().catch(()=>null);
+  const maxImg=Math.max(1, Math.min(limits?.images?.maxCount||4, 8));
+  const B={source:files.length===1?files[0].name:`${files.length} photos`, pdf:null, file:files.length===1?files[0]:null, pages:[], forms:[], skipped:[]};
+  ctx.batch=B;
+  try{
+    /* 1. pages */
+    if(preread){
+      B.pdf=preread.doc;
+      preread.pageTexts.forEach((t,i)=>B.pages.push({n:i+1, text:t, hasText:t.replace(/\s/g,"").length>150}));
+    } else {
+      for(let i=0;i<files.length;i++){ busy(`Preparing photo ${i+1} of ${files.length}…`); B.pages.push({n:i+1, text:"", hasText:false, blob:await normalizeImage(files[i], limits), name:files[i].name}); }
+    }
+    const scanned = B.pages.some(p=>!p.hasText);
+    if(scanned && !limits?.images) throw new Error("Reading scanned pages or photos is not available in this view. Upload a typed PDF instead.");
+    const imgOf = async (p, width=1700)=>{ if(p.blob) return width<1700? shrinkImage(p.blob,width) : p.blob; return pageImage(B.pdf, p.n, width); };
+
+    /* 2. find where each form starts and ends */
+    const sortPrompt=(first,last,count,how)=>`These ${count} ${how} pages ${first} to ${last}, in order, from a stack of completed Family Conference forms at a preschool. Forms come from different school years, so the layout, titles and section names vary. The current version has a first page titled Family Conference, with Conference Date and Time, Teacher, and development areas starting with Main Interests and Friends, and a second page titled Family Reflections with six numbered questions for the family. Older versions may use other titles, other section names, a single page, or questions for the family on the same page.
+For each page decide its kind.
+- conference means the first page of a form for one child, whatever the version.
+- reflections means a page of questions answered with the family that belongs with the form before it.
+- continuation means any other page that continues the form before it.
+- other means a page that is not part of any form, such as a blank page or a cover sheet.
+Also give the child's name written on the page, or an empty string when none appears.
+Reply with only JSON in this shape
+{"pages":[{"page":${first},"kind":"conference | reflections | continuation | other","childName":""}]}`;
+    const KINDS=["conference","reflections","continuation","other"];
+    const take=(chunk,r,infos)=>chunk.forEach((p,k)=>{ const hit=(r?.pages||[]).find(x=>+x.page===p.n) || (r?.pages||[])[k] || {}; infos.push({n:p.n, kind:KINDS.includes(hit.kind)?hit.kind:"continuation", childName:String(hit.childName||"")}); });
+    let infos;
+    if(!scanned){
+      infos=B.pages.map(p=>({n:p.n, kind:pageKindFromText(p.text), childName:""}));
+      const trial=groupPages(infos);
+      // the page titles did not match the current template, so this is likely an older version; let Claude sort the pages by reading them
+      if(!infos.some(x=>x.kind==="conference") || trial.forms.some(f=>f.pages.length>4) || trial.skipped.length){
+        infos=[];
+        for(let i=0;i<B.pages.length;i+=12){
+          const chunk=B.pages.slice(i,i+12);
+          busy(`Sorting pages ${chunk[0].n} to ${chunk.at(-1).n} of ${B.pages.length}…`);
+          const body=chunk.map(p=>`--- Page ${p.n} ---\n${p.text.replace(/\s+/g," ").slice(0,900)}`).join("\n\n");
+          try{ take(chunk, await S.sample.json(sortPrompt(chunk[0].n,chunk.at(-1).n,chunk.length,"excerpts below are the text of")+"\n\n"+body, {modelTier:"quick", signal:ctl.signal}), infos); }
+          catch(e){ if(e?.code==="cancelled") throw e; chunk.forEach(p=>infos.push({n:p.n, kind:pageKindFromText(p.text)==="other"?"other":(p.n%2===1?"conference":"reflections"), childName:"", guessed:true})); }
+        }
+      }
+    }
+    else {
+      infos=[];
+      for(let i=0;i<B.pages.length;i+=maxImg){
+        const chunk=B.pages.slice(i,i+maxImg);
+        busy(`Sorting pages ${chunk[0].n} to ${chunk.at(-1).n} of ${B.pages.length}…`);
+        const imgs=[]; for(const p of chunk) imgs.push(await imgOf(p, 900));
+        try{ take(chunk, await S.sample.json(sortPrompt(chunk[0].n,chunk.at(-1).n,chunk.length,"images are"), {images:imgs, modelTier:"quick", signal:ctl.signal}), infos); }
+        catch(e){ if(e?.code==="cancelled") throw e; chunk.forEach(p=>infos.push({n:p.n, kind:(p.n%2===1)?"conference":"reflections", childName:"", guessed:true})); }
+      }
+    }
+    if(!infos.some(x=>x.kind==="conference")) infos=infos.map(x=>({...x, kind:x.kind==="other"?"other":(x.n%2===1?"conference":"reflections"), guessed:true}));
+    const g=groupPages(infos); B.skipped=g.skipped;
+    B.forms=g.forms.map((f,i)=>({i, pages:f.pages, nameHint:f.name, state:"waiting", result:null, error:"", include:true, childId:"", year:"", term:"", edits:{}, guessed:infos.some(x=>x.guessed)}));
+    if(!B.forms.length) throw new Error("No conference forms were found in this upload.");
+
+    /* 3. read each form on its own */
+    let done=0;
+    const readOne = async (F)=>{
+      F.state="reading"; busy(`Reading form ${done+1} of ${B.forms.length} (${pageRange(F.pages)})…`);
+      try{
+        const ps=F.pages.map(n=>B.pages[n-1]);
+        let res;
+        if(!scanned){ res=await S.sample.json(extractionPrompt(ps.map(p=>p.text).join("\n\n")), {signal:ctl.signal, modelTier:"default", ...(F.careful?{careful:true}:{})}); }
+        else { const imgs=[]; for(const p of ps.slice(0,maxImg)) imgs.push(await imgOf(p)); res=await S.sample.json(extractionPrompt(""), {images:imgs, signal:ctl.signal, modelTier:"default", ...(F.careful?{careful:true}:{})}); }
+        if(!res||typeof res!=="object") throw {code:"invalid_json"};
+        F.result=res; F.state="read";
+        const m=bestChildMatch(res.childName||F.nameHint, res.birthdate, res.parentNames||res.familyMembersPresent); F.childId=m?.id||"";
+        const pd=inferSeason(res, m); F.year=pd.year; F.term=pd.term; F.date=pd.date; F.how=pd.how;
+      }catch(e){ if(e?.code==="cancelled") throw e; F.state="failed"; F.include=false; F.error=readErr(e); }
+      done++;
+    };
+    for(const F of B.forms) await readOne(F);
+    ctx.readOne=readOne; ctx.scanned=scanned;
+    ctx.resplit=async(per)=>{
+      const ctl2=new AbortController(); S.modalCtl=ctl2; done=0;
+      const nums=B.pages.map(p=>p.n).filter(n=>!B.skipped.includes(n));
+      B.forms=[]; for(let i=0;i<nums.length;i+=per) B.forms.push({i:B.forms.length, pages:nums.slice(i,i+per), nameHint:"", state:"waiting", result:null, error:"", include:true, childId:"", year:"", term:"", edits:{}, guessed:false, manual:per});
+      try{ for(const F of B.forms) await readOne(F); }catch(e){ if(e?.code==="cancelled") return; }
+      showBatchReview();
+    };
+    showBatchReview();
+  }catch(e){
+    if(e?.code==="cancelled") return;
+    impStatus(`<div class="notice">${esc(e?.message || readErr(e))}</div>`);
+  }
+}
+function readErr(e){
+  return e?.code==="not_granted"? "Claude was not allowed for this page."
+    : e?.code==="rate_limited"? "Claude is busy. Wait a minute and try this form again."
+    : e?.code==="image_rejected"? "These pages could not be used as images."
+    : e?.code==="invalid_json"? "The reply could not be turned into form sections."
+    : e?.code==="refused"? "Claude could not read these pages."
+    : (e?.message || "This form could not be read this time.");
+}
+function batchConflicts(){
+  const B=S.importCtx.batch, seen={};
+  B.forms.forEach(F=>{ if(F.include && F.childId && F.term!=="Additional"){ const k=F.childId+"|"+(F.term==="Historical"?"":F.year)+"|"+F.term; (seen[k]=seen[k]||[]).push(F.i); } });
+  return seen;
+}
+function showBatchReview(){
+  const ctx=S.importCtx, B=ctx.batch;
+  const kids=Object.values(S.children).sort((a,b)=>childName(a).localeCompare(childName(b)));
+  const yrs=[...new Set([...(S.settings.years||[]), S.period.year, ...B.forms.map(F=>F.year).filter(Boolean)])].sort();
+  const seasonOpts=F=>`<option value="|Historical" ${F.term==="Historical"?"selected":""}>Earlier, date unknown</option>`+yrs.flatMap(y=>["Fall","Spring","Additional"].map(t=>`<option value="${y}|${t}" ${F.year===y&&F.term===t?"selected":""}>${t} ${y}</option>`)).join("");
+  const conf=batchConflicts();
+  const read=B.forms.filter(F=>F.state==="read").length, matched=B.forms.filter(F=>F.state==="read"&&F.childId).length;
+  const row=F=>{
+    const r=F.result||{}; const filled=F.result? filledCount({fields:r.fields||{},reflections:r.reflections||{}}) : 0;
+    const k=F.childId+"|"+(F.term==="Historical"?"":F.year)+"|"+F.term; const group=(conf[k]||[]); const firstI=group[0];
+    const combined = F.include && F.childId && group.length>1 && firstI!==F.i ? B.forms[firstI] : null;
+    const existing = F.childId ? findConf(F.childId, F.year, F.term) : null;
+    const note = F.state==="failed"? `<span style="color:var(--danger)">${esc(F.error)}</span> <button class="btn sm" data-act="batch-retry" data-i="${F.i}">Try again</button>`
+      : !F.childId? `<span style="color:var(--danger)">Choose the child</span>`
+      : (combined? `Combined with ${esc(pageRange(combined.pages).toLowerCase())}. Repeated text is left out.`
+        : existing? (F.term==="Historical"? "Adds to earlier conferences" : hasWork(existing)?"Adds to the existing conference":"Fills the started conference")
+        : F.term==="Historical"? "Starts the earlier conferences record" : "Starts a new conference")
+        + (seasonNote(F.how)? `<div class="muted">${esc(seasonNote(F.how))}</div>` : "");
+    return `<tr data-i="${F.i}">
+      <td><input type="checkbox" aria-label="Include this form" data-b="include" ${F.include?"checked":""} ${F.state!=="read"?"disabled":""}></td>
+      <td class="small mono" style="white-space:nowrap">${esc(pageRange(F.pages).replace("Pages ","").replace("Page ",""))}</td>
+      <td class="small">${esc(r.childName||F.nameHint||"No name found")}${r.readability?`<div class="muted">${esc(r.readability)}${/older/i.test(r.formVersion||"")?", older form":""}</div>`:""}</td>
+      <td><select aria-label="Child" data-b="child" ${F.state!=="read"?"disabled":""}><option value="">Choose a child</option>${kids.map(c=>`<option value="${esc(c.id)}" ${F.childId===c.id?"selected":""}>${esc(childName(c))}${c.classroom?" · "+esc(c.classroom):""}</option>`).join("")}</select></td>
+      <td><select aria-label="Season" data-b="season" ${F.state!=="read"?"disabled":""}>${seasonOpts(F)}</select></td>
+      <td class="small mono">${F.result? filled+"/"+TOTAL_FIELDS : ""}</td>
+      <td class="small">${note}</td>
+      <td><div class="stack" style="gap:6px">${F.state==="read"?`<button class="btn sm" data-act="batch-check" data-i="${F.i}">Check</button>`:""}${window.CAREFUL_READ && F.state==="read" && !F.careful?`<button class="btn sm ghost" data-act="batch-careful" data-i="${F.i}" title="Uses a stronger model for hard handwriting">Read carefully</button>`:""}</div></td>
+    </tr><tr class="batch-detail" data-detail="${F.i}" hidden><td colspan="8"></td></tr>`; };
+  impStatus(`
+    <div class="notice" style="margin-bottom:10px"><b>${B.forms.length} ${B.forms.length===1?"form":"forms"} found in ${B.pages.length} pages.</b> ${read} read, ${matched} matched to a child.${B.skipped.length?` Skipped ${B.skipped.length===1?"page":"pages"} ${B.skipped.join(", ")} because ${B.skipped.length===1?"it does":"they do"} not look like part of a form.`:""}${B.forms[0]?.guessed?" Some pages could not be sorted automatically, so forms were assumed to be two pages each. Check the page ranges.":""} Check each child and season before saving. Forms for the same child and season are combined into one conference, and copies of the same form are not repeated. When the date is unclear, the form is kept with that child's earlier conferences.</div>
+    <div class="row small" style="margin-bottom:10px"><span class="muted">Pages split wrong?</span><label for="bt-per" class="muted">Read again with</label><select id="bt-per">${[1,2,3,4].map(n=>`<option value="${n}" ${B.forms[0]?.manual===n?"selected":""}>${n} ${n===1?"page":"pages"} per form</option>`).join("")}</select><button class="btn sm" data-act="batch-resplit">Read again</button></div>
+    <div class="tbl-wrap"><table class="list" id="batch-table"><thead><tr><th></th><th>Pages</th><th>Form says</th><th>Child</th><th>Season</th><th>Filled</th><th>What happens</th><th></th></tr></thead><tbody>${B.forms.map(row).join("")}</tbody></table></div>
+    <label class="check" ${S.assets?"":"hidden"}><input type="checkbox" id="bt-keep" checked><span>Keep each child's original pages with their conference</span></label>
+    <div class="modal-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="bt-save">Save checked forms</button></div>`);
+  const tb=$("#batch-table");
+  tb.addEventListener("change", e=>{
+    const tr=e.target.closest("tr[data-i]"); if(!tr) return; const F=B.forms[+tr.dataset.i]; const k=e.target.dataset.b;
+    if(k==="include") F.include=e.target.checked;
+    if(k==="child"){ F.childId=e.target.value; if(!F.seasonTouched && F.result){ const pd=inferSeason(F.result, S.children[F.childId]); F.year=pd.year; F.term=pd.term; F.date=pd.date; F.how=pd.how; } }
+    if(k==="season"){ const [y,t]=e.target.value.split("|"); F.year=y; F.term=t; F.seasonTouched=true; F.how=""; }
+    if(k) { const open=$$("tr.batch-detail:not([hidden])").map(x=>x.dataset.detail); showBatchReview(); open.forEach(i=>toggleBatchDetail(+i,true)); }
+  });
+  tb.addEventListener("input", e=>{ const d=e.target.closest("tr[data-detail]"); if(d && e.target.dataset.path){ B.forms[+d.dataset.detail].edits[e.target.dataset.path]=e.target.value; } });
+  $("#bt-save").onclick=saveBatch;
+  updateBatchSaveBtn();
+}
+function updateBatchSaveBtn(){
+  const B=S.importCtx.batch, btn=$("#bt-save"); if(!btn) return;
+  const ok=B.forms.filter(F=>F.include&&F.state==="read"); const conf=batchConflicts();
+  const blocked=ok.some(F=>!F.childId);
+  btn.disabled=!ok.length||blocked; btn.textContent= ok.length? `Save ${ok.length} ${ok.length===1?"form":"forms"}` : "Save checked forms";
+}
+function batchFieldList(){ return [["confDate","Conference date"],["confTime","Time"],["teacher","Teacher"],["familyPresent","Family members present"],["reflDate","Reflections date"],...FIELDS.map(f=>["fields."+f.k,f.label]),...REFLECTIONS.map((r,i)=>["reflections."+r.k,"Reflection "+(i+1)]),["otherSections","Other sections from the original form"]]; }
+function batchValue(F,path){
+  if(path in F.edits) return F.edits[path];
+  const r=F.result||{};
+  const map={confDate:r.conferenceDate, confTime:r.conferenceTime, teacher:r.teacher, familyPresent:r.familyMembersPresent, reflDate:r.reflectionsDate, otherSections:r.otherSections};
+  if(path in map) return map[path]||"";
+  return getPath({fields:r.fields||{},reflections:r.reflections||{}}, path)||"";
+}
+function toggleBatchDetail(i, forceOpen){
+  const B=S.importCtx.batch, F=B.forms[i], tr=$(`tr[data-detail="${i}"]`); if(!tr) return;
+  const open = forceOpen ?? tr.hidden; tr.hidden=!open; if(!open) return;
+  const r=F.result||{};
+  tr.firstElementChild.innerHTML = `<div style="padding:6px 0">${r.notes?`<p class="small muted" style="margin:0 0 8px">${esc(r.notes)}</p>`:""}
+    ${batchFieldList().map(([path,label])=>{ const v=batchValue(F,path); return `<div class="review-row" style="grid-template-columns:180px minmax(0,1fr)"><div><b class="small">${esc(label)}</b></div><div><textarea data-path="${esc(path)}" aria-label="${esc(label)}">${esc(v)}</textarea></div></div>`; }).join("")}</div>`;
+}
+actions["batch-check"]=a=>toggleBatchDetail(+a.dataset.i);
+actions["reread-careful"]=()=>{ const ctx=S.importCtx; if(!ctx?.file) return; ctx.careful=true; runImport(ctx.file,{careful:true}); };
+actions["batch-careful"]=async a=>{ const ctx=S.importCtx, F=ctx.batch.forms[+a.dataset.i]; F.careful=true; F.edits={}; const ctl=new AbortController(); S.modalCtl=ctl; try{ await ctx.readOne(F); }catch(e){} showBatchReview(); };
+actions["open-saved"]=a=>{ closeModal(); go("conf",{id:a.dataset.id}); };
+function seasonSelectOptions(sel){
+  const yrs=[...new Set([...(S.settings.years||[]), S.period.year, sel.year].filter(Boolean))].sort();
+  return `<option value="|Historical" ${sel.term==="Historical"?"selected":""}>Earlier, date unknown</option>`+yrs.flatMap(y=>["Fall","Spring","Additional"].map(t=>`<option value="${y}|${t}" ${sel.year===y&&sel.term===t?"selected":""}>${t} ${y}</option>`)).join("");
+}
+actions["conf-move"]=()=>{
+  const cf=S.confs[S.view.id]; if(!cf) return;
+  const kids=Object.values(S.children).sort((a,b)=>childName(a).localeCompare(childName(b)));
+  openModal(`<h2>Move this record</h2>
+    <p class="small muted" style="margin:0">Use this when a form was matched to the wrong child or the wrong season. If the child already has a record for that season, the two are combined and repeated text is left out.</p>
+    <div class="grid2">
+      <div class="field"><label for="mv-child">Child</label><select id="mv-child">${kids.map(c=>`<option value="${esc(c.id)}" ${c.id===cf.childId?"selected":""}>${esc(childName(c))}${c.classroom?" · "+esc(c.classroom):""}</option>`).join("")}</select></div>
+      <div class="field"><label for="mv-season">Season</label><select id="mv-season">${seasonSelectOptions({year:cf.schoolYear, term:cf.term})}</select></div>
+    </div>
+    <div class="modal-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="conf-move-yes">Move record</button></div>`);
+};
+actions["conf-move-yes"]=async(btn)=>{
+  await flushAll();
+  const src=S.confs[S.view.id]; if(!src) return;
+  const childId=$("#mv-child").value; const [year,term]=$("#mv-season").value.split("|");
+  if(childId===src.childId && term===src.term && (term==="Historical"||year===src.schoolYear)){ closeModal(); return; }
+  btn.disabled=true; btn.textContent="Moving…";
+  try{
+    let destId=findConf(childId,year,term)?.id;
+    if(destId===src.id) destId=null;
+    if(!destId) destId=await createConf(childId,year,term);
+    if(!destId) throw new Error("create");
+    const dest=S.confs[destId]||{}; const patch={};
+    const singles=["confDate","confTime","format","teacher","familyPresent","reflDate","followUpDate","followUpNote"];
+    const texts=[...FIELDS.map(f=>"fields."+f.k), ...REFLECTIONS.map(r=>"reflections."+r.k), "otherSections","prevGoalsProgress","staffNotes"];
+    singles.forEach(k=>{ const v=src[k]; if(v && !dest[k]) patch[k]=v; });
+    texts.forEach(k=>{ const v=getPath(src,k); if(!String(v||"").trim()) return; const cur=String(getPath(dest,k)||"").trim(); const out=mergeText(cur, v, cur? "From another form" : ""); if(out!==cur) setPath(patch,k,out); });
+    Object.entries(src.prep||{}).forEach(([k,v])=>{ if(v) setPath(patch,"prep."+k,true); });
+    if((src.attachments||[]).length) patch.attachments=[...(dest.attachments||[]), ...src.attachments];
+    if(src.status==="complete" && term!=="Historical") patch.status="complete";
+    patch.updatedAt=nowISO(); if(S.uid) patch.updatedBy=S.uid;
+    await dbUpdate("conferences/"+destId, patch);
+    pending.clear(); dirty.clear();
+    await dbDelete("conferences/"+src.id);
+    closeModal(); toast("Record moved"); go("conf",{id:destId});
+  }catch(e){ btn.disabled=false; btn.textContent="Move record"; }
+};
+actions["batch-resplit"]=()=>{ const per=+$("#bt-per").value||2; S.importCtx.resplit?.(per); };
+actions["batch-retry"]=async a=>{
+  const ctx=S.importCtx, F=ctx.batch.forms[+a.dataset.i]; F.state="waiting"; F.error="";
+  const ctl=new AbortController(); S.modalCtl=ctl;
+  try{ await ctx.readOne(F); if(F.state==="read") F.include=true; }catch(e){}
+  showBatchReview();
+};
+async function splitPdfPages(pages){
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js");
+  const ctx=S.importCtx, B=ctx.batch;
+  if(!B.srcPdf) B.srcPdf=await window.PDFLib.PDFDocument.load(await B.file.arrayBuffer(), {ignoreEncryption:true});
+  const out=await window.PDFLib.PDFDocument.create();
+  const copied=await out.copyPages(B.srcPdf, pages.map(n=>n-1)); copied.forEach(pg=>out.addPage(pg));
+  return new Blob([await out.save()],{type:"application/pdf"});
+}
+async function saveBatch(){
+  const ctx=S.importCtx, B=ctx.batch; const btn=$("#bt-save"); btn.disabled=true;
+  const todo=B.forms.filter(F=>F.include&&F.state==="read"&&F.childId);
+  const keep=$("#bt-keep")?.checked && S.assets;
+  let saved=0, failed=[]; const savedList=[];
+  for(const F of todo){
+    btn.textContent=`Saving ${saved+1} of ${todo.length}…`;
+    try{
+      let confId = findConf(F.childId, F.year, F.term)?.id || null;
+      if(!confId) confId=await createConf(F.childId, F.year, F.term);
+      if(!confId) throw new Error("create");
+      const target=structuredClone(S.confs[confId]||{}); const patch={};
+      const hist=F.term==="Historical"; const r=F.result||{};
+      const rawDate=String(r.conferenceDate||"").trim();
+      const dateText = F.date? fmtDate(F.date) : rawDate && !/^\d{1,2}:\d{2}/.test(rawDate)? rawDate : "";
+      for(const [path] of batchFieldList()){
+        let val=String(batchValue(F,path)||"").trim(); if(!val && !(path==="confDate"&&F.date)) continue;
+        const cur=String(getPath(target,path)||"").trim();
+        if(path==="confDate"||path==="reflDate"){ if(hist) continue; val=toISODate(val)||(path==="confDate"?F.date:""); if(!val||cur) continue; }
+        else if(path==="confTime"){ if(hist) continue; val=parseTime(val); if(!val||cur) continue; }
+        else if(path==="teacher"){ if(cur){ const names=[...new Set([...cur.split(/,\s*/),val].filter(Boolean))]; val=names.join(", "); if(val===cur) continue; } }
+        else if(path==="familyPresent"){ if(cur){ if(containment(cur,val)>=0.8){ if(val===cur) continue; } else if(containment(val,cur)>=0.6) continue; else val=cur+"; "+val; } }
+        else {
+          const label = (hist||cur)? (dateText? `From the form dated ${dateText}` : (cur? "From another form" : "")) : "";
+          val=mergeText(cur,val,label); if(val===cur) continue;
+        }
+        setPath(patch,path,val); setPath(target,path,val);
+      }
+      if(keep){
+        try{
+          const atts=[...(target.attachments||[])];
+          if(B.file && B.pdf){ const blob=await splitPdfPages(F.pages); const up=await S.assets.upload(blob); atts.push({id:up.id,name:`${B.source.replace(/\.pdf$/i,"")} ${pageRange(F.pages).toLowerCase()}.pdf`,type:"application/pdf",at:nowISO(),...(S.uid?{by:S.uid}:{})}); }
+          else for(const n of F.pages){ const p=B.pages[n-1]; const up=await S.assets.upload(p.blob); atts.push({id:up.id,name:p.name||`page-${n}.jpg`,type:up.contentType||p.blob.type,at:nowISO(),...(S.uid?{by:S.uid}:{})}); }
+          patch.attachments=atts; target.attachments=atts;
+        }catch(e){ console.warn(e); }
+      }
+      patch.updatedAt=nowISO(); if(S.uid) patch.updatedBy=S.uid; patch.importedFrom=B.source;
+      await dbUpdate("conferences/"+confId, patch); saved++;
+      if(!savedList.some(x=>x.id===confId)) savedList.push({id:confId, name:childName(S.children[F.childId]), label:confLabel(S.confs[confId]||{term:F.term,schoolYear:F.year})});
+      S.confs[confId]={...target, id:confId, updatedAt:patch.updatedAt}; // so the next form for this child builds on this one
+    }catch(e){ failed.push(childName(S.children[F.childId])); }
+  }
+  closeModal();
+  savedList.sort((a,b)=>a.name.localeCompare(b.name));
+  openModal(`<h2>${saved} ${saved===1?"form":"forms"} saved</h2>
+    ${failed.length?`<div class="notice">Not saved for ${esc(failed.join(", "))}. Upload those pages again.</div>`:""}
+    <p class="small muted" style="margin:0">They went into ${savedList.length} ${savedList.length===1?"record":"records"}. Open any of them to check the combined text.</p>
+    <ul class="list-plain">${savedList.map(x=>`<li><span><b>${esc(x.name)}</b> <span class="muted small">${esc(x.label)}</span></span><button class="btn sm" data-act="open-saved" data-id="${esc(x.id)}">Open</button></li>`).join("")}</ul>
+    <div class="modal-foot"><button class="btn primary" data-act="close">Done</button></div>`);
+}
+
+function openAttachOnly(){
+  openModal(`<h2>Attach a file</h2><p class="small muted" style="margin:0">Keep a scan, photo, or document with this conference without reading it.</p>
+  <label class="drop" for="att-file"><b>Choose a file</b><div class="small muted">Images, PDF, or text up to 20 MB</div></label><input type="file" id="att-file" hidden>
+  <div id="att-status"></div><div class="modal-foot"><button class="btn" data-act="close">Done</button></div>`);
+  $("#att-file").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; $("#att-status").innerHTML=`<div class="progress-note"><span class="spinner"></span>Uploading…</div>`;
+    try{ const up=await S.assets.upload(f); const cf=S.confs[S.view.id]; await dbUpdate("conferences/"+cf.id,{attachments:[...(cf.attachments||[]),{id:up.id,name:f.name,type:up.contentType||f.type,at:nowISO(),...(S.uid?{by:S.uid}:{})}],updatedAt:nowISO()}); closeModal(); toast("File attached"); }
+    catch(err){ $("#att-status").innerHTML=`<div class="notice">${err?.code==="unsupported_type"?"This file type cannot be stored. Upload an image, PDF, or text file. Word files can be saved as PDF first.":"The file could not be attached. Try again."}</div>`; } };
+}
+
+/* ---------- roster import from 1Core ---------- */
+function parseRosterPages(pages){
+  const norm=s=>s.replace(/\s+/g," ").trim(); const kids=[]; let cur=null;
+  for(const pg of pages){
+    const items=pg.items.filter(i=>i.str&&i.str.trim()).map(i=>({s:norm(i.str),x:i.x,y:i.y})); const mid=pg.width/2;
+    const rowVal=(lab,minX,maxX)=>{ const v=items.filter(i=>Math.abs(i.y-lab.y)<3&&i.x>lab.x+5&&i.x>=minX&&i.x<maxX&&!/:\s*$/.test(i.s)).sort((a,b)=>a.x-b.x); return norm(v.map(x=>x.s).join(" ")).replace(/^:\s*/,""); };
+    const findLabel=(re,cond=()=>true)=>items.find(i=>re.test(i.s)&&cond(i));
+    const header=findLabel(/^Child Name\s*:?/);
+    if(header){
+      cur={name:"",parents:[],ifsp:""}; kids.push(cur);
+      const inline=header.s.replace(/^Child Name\s*:\s*/,""); cur.name=inline||rowVal(header,header.x,99999);
+      const fk=findLabel(/^Family Account Key/); if(fk) cur.familyKey=fk.s.replace(/^Family Account Key\s*:\s*/,"")||rowVal(fk,fk.x,header.x);
+      const ci=findLabel(/^Child Information/); const below=i=>ci?i.y>ci.y:true;
+      const field=re=>{ const l=findLabel(re,i=>below(i)&&i.x<mid); return l?rowVal(l,l.x,mid+200):""; };
+      cur.gender=field(/^Gender\s*:/); cur.dob=field(/^Date of Birth\s*:/); cur.classroom=field(/^Primary Classroom\s*:/); cur.program=field(/^Program\s*:/); cur.schedule=field(/^Schedule\s*:/); cur.enrollDate=field(/^Enrollment Date\s*:/);
+      const p1=findLabel(/^Parent 1/), p2=findLabel(/^Parent 2/); const ft=findLabel(/^Family Type/); const stopY=ft?ft.y:(ci?ci.y:99999);
+      const pb=(head,minX,maxX)=>{ if(!head) return null; const g=re=>{ const l=items.find(i=>re.test(i.s)&&i.y>head.y&&i.y<stopY&&i.x>=minX&&i.x<maxX); return l?rowVal(l,minX,maxX):""; };
+        const p={name:g(/^Name\s*:/),cell:g(/^Cell Phone\s*:/),email:g(/^Email\s*:/)}; return p.name?p:null; };
+      const a=pb(p1,0,mid-40), b=pb(p2,mid-40,99999); if(a) cur.parents.push(a); if(b) cur.parents.push(b);
+    } else if(cur){
+      const ifsp=findLabel(/^IFSP\s*:/); if(ifsp) cur.ifsp=rowVal(ifsp,ifsp.x,mid);
+    }
+  }
+  return kids.filter(k=>k.name).map(k=>{ const parts=k.name.split(" "); return {first:parts[0]||"",last:parts.slice(1).join(" "),dob:toISODate(k.dob),gender:k.gender,classroom:k.classroom,program:k.program,schedule:k.schedule,enrollDate:toISODate(k.enrollDate),familyKey:k.familyKey||"",parents:k.parents,ifsp:k.ifsp}; });
+}
+const ROSTER_KEYS=[["classroom","Classroom"],["program","Program"],["schedule","Schedule"],["dob","Birthdate"],["enrollDate","Enrolled"],["ifsp","IEP/IFSP"],["gender","Gender"]];
+function openRosterImport(){
+  openModal(`<h2>Update the roster from 1Core</h2>
+    <p class="small muted" style="margin:0">In 1Core, export the Family Information Sheets as a PDF and upload it here. You will see every change before anything is saved.</p>
+    <label class="drop" id="rdrop" for="r-file"><b>Choose the PDF or drop it here</b></label><input type="file" id="r-file" accept=".pdf,application/pdf" hidden>
+    <div id="r-status"></div><div class="modal-foot" id="r-foot"><button class="btn" data-act="close">Cancel</button></div>`,{wide:true});
+  const run=async f=>{
+    $("#r-status").innerHTML=`<div class="progress-note"><span class="spinner"></span>Reading ${esc(f.name)}…</div>`;
+    try{ const r=await readPdf(f); const list=parseRosterPages(r.pages); if(!list.length) throw new Error("No Family Information Sheets were found in this PDF."); showRosterDiff(list); }
+    catch(e){ $("#r-status").innerHTML=`<div class="notice">${esc(e.message||"The PDF could not be read.")}</div>`; }
+  };
+  const inp=$("#r-file"), drop=$("#rdrop"); inp.onchange=()=>inp.files[0]&&run(inp.files[0]);
+  drop.ondragover=e=>{e.preventDefault();drop.classList.add("over");}; drop.ondragleave=()=>drop.classList.remove("over"); drop.ondrop=e=>{e.preventDefault();drop.classList.remove("over");e.dataTransfer.files[0]&&run(e.dataTransfer.files[0]);};
+}
+function findExisting(k){
+  const nm=s=>String(s||"").toLowerCase().replace(/[^a-z]/g,"");
+  const all=Object.values(S.children);
+  return all.find(c=>nm(childName(c))===nm(k.first+" "+k.last)&&(!c.dob||!k.dob||c.dob===k.dob)) || all.find(c=>c.dob&&c.dob===k.dob&&nm(c.first)===nm(k.first));
+}
+function showRosterDiff(list){
+  const adds=[], changes=[], seen=new Set();
+  list.forEach(k=>{ const ex=findExisting(k); if(!ex){ adds.push(k); return; } seen.add(ex.id);
+    const diffs=ROSTER_KEYS.filter(([f])=>(k[f]||"")!==(ex[f]||"") && (k[f]||"")).map(([f,l])=>({f,l,from:ex[f]||"",to:k[f]}));
+    const pa=JSON.stringify((k.parents||[]).map(p=>[p.name,p.cell,p.email])), pb=JSON.stringify((ex.parents||[]).map(p=>[p.name,p.cell,p.email]));
+    if(pa!==pb && k.parents?.length) diffs.push({f:"parents",l:"Family contacts",from:(ex.parents||[]).map(p=>p.name).join(", "),to:k.parents.map(p=>p.name).join(", ")});
+    if(ex.status==="withdrawn") diffs.push({f:"status",l:"Enrollment",from:"Withdrawn",to:"Enrolled"});
+    if(diffs.length) changes.push({k,ex,diffs}); });
+  const missing=Object.values(S.children).filter(c=>c.status!=="withdrawn"&&!seen.has(c.id));
+  S.rosterDiff={adds,changes,missing};
+  $("#r-status").innerHTML=`
+    <p><b>${list.length}</b> children found in the PDF. <b>${adds.length}</b> new, <b>${changes.length}</b> with changes, <b>${missing.length}</b> on this roster but missing from the PDF.</p>
+    ${adds.length?`<h3>New children</h3>${adds.map((k,i)=>`<label class="check"><input type="checkbox" data-add="${i}" checked><span><b>${esc(k.first+" "+k.last)}</b> · ${esc(k.classroom)} · born ${esc(fmtDate(k.dob))}</span></label>`).join("")}`:""}
+    ${changes.length?`<h3 style="margin-top:12px">Changed details</h3>${changes.map((c,i)=>`<label class="check"><input type="checkbox" data-chg="${i}" checked><span><b>${esc(childName(c.ex))}</b>${c.diffs.map(d=>`<br><span class="small">${esc(d.l)} <span class="diff-old">${esc(d.from||"blank")}</span> to ${esc(d.to)}</span>`).join("")}</span></label>`).join("")}`:""}
+    ${missing.length?`<h3 style="margin-top:12px">Missing from the PDF</h3><p class="small muted" style="margin:0">Tick any child who has left to mark them withdrawn. Their conference history stays.</p>${missing.map((c,i)=>`<label class="check"><input type="checkbox" data-miss="${i}"><span>${esc(childName(c))} · ${esc(c.classroom||"")}</span></label>`).join("")}`:""}
+    ${!adds.length&&!changes.length&&!missing.length?`<p class="muted">The roster already matches this PDF.</p>`:""}`;
+  $("#r-foot").innerHTML=`<button class="btn" data-act="close">Cancel</button><button class="btn primary" id="r-apply" ${!adds.length&&!changes.length&&!missing.length?"disabled":""}>Apply selected changes</button>`;
+  $("#r-apply").onclick=applyRosterDiff;
+}
+async function applyRosterDiff(){
+  const {adds,changes,missing}=S.rosterDiff; const btn=$("#r-apply"); btn.disabled=true; btn.textContent="Saving…";
+  let n=0;
+  try{
+    for(const el of $$("[data-add]:checked")){ const k=adds[+el.dataset.add]; let id=slug(k.first+" "+k.last)+"-"+(k.dob||"").replace(/-/g,""); if(S.children[id]) id+="-"+uid().slice(0,4);
+      await dbSet("children/"+id,{...k,status:"active",source:"1core",createdAt:nowISO(),updatedAt:nowISO()}); n++; }
+    for(const el of $$("[data-chg]:checked")){ const c=changes[+el.dataset.chg]; const upd={updatedAt:nowISO()}; c.diffs.forEach(d=>{ if(d.f==="parents") upd.parents=c.k.parents; else if(d.f==="status") upd.status="active"; else upd[d.f]=c.k[d.f]; });
+      const {id:_,...prev}=c.ex; await dbSet("children/"+c.ex.id,{...prev,...upd}); n++; }
+    for(const el of $$("[data-miss]:checked")){ const c=missing[+el.dataset.miss]; const {id:_,...prev}=c; await dbSet("children/"+c.id,{...prev,status:"withdrawn",withdrawnAt:nowISO(),updatedAt:nowISO()}); n++; }
+    closeModal(); toast(`${n} roster ${n===1?"change":"changes"} saved`);
+  }catch(e){ btn.disabled=false; btn.textContent="Apply selected changes"; }
+}
+
+boot();
+</script>

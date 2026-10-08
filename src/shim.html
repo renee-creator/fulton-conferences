@@ -1,0 +1,149 @@
+<style>
+#gate{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px 16px}
+#gate .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:28px 24px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:14px}
+#gate h1{font-size:1.6rem}
+#gate input{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;font-size:1rem;width:100%}
+#gate .msg{font-size:.9rem;min-height:1.2em}
+#gate .msg.bad{color:var(--danger)}
+.who-chip{font-size:.85rem;color:var(--muted);display:flex;gap:8px;align-items:center}
+</style>
+<div id="gate" hidden>
+  <form class="card" id="gate-form" autocomplete="off">
+    <svg width="34" height="34" viewBox="0 0 30 30" aria-hidden="true"><path d="M15 28V15M15 15c-4-1-7-4-8-8M15 15c4-1 7-4 8-8M15 19c-3 0-5-2-6-4M15 19c3 0 5-2 6-4M15 11V3" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/><path d="M7 28h16" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round"/></svg>
+    <div><div class="eyebrow">Fulton Community School &amp; Farm</div><h1>Family Conferences</h1></div>
+    <label for="gate-code" class="small" style="font-weight:600">Your passcode</label>
+    <input id="gate-code" type="password" autocomplete="current-password" required>
+    <button class="btn primary" id="gate-btn" type="submit" style="justify-content:center">Sign in</button>
+    <div class="msg muted" id="gate-msg" aria-live="polite"></div>
+  </form>
+</div>
+<script>
+"use strict";
+/* Connects the conference app to the Fulton conference server on Render.
+   Records live in a private GitHub repository behind that server. */
+(function(){
+  const qs=new URLSearchParams(location.search);
+  const SERVER=(qs.get("server")||"https://fulton-conferences.onrender.com").replace(/\/+$/,"");
+  const LS={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}};
+  const Auth={token:LS.get("fc-token"), name:LS.get("fc-name")};
+  const Store={data:{children:{},conferences:{},settings:{}}, rev:0, bootId:"", listeners:new Set(), ready:null};
+  window.CAREFUL_READ=true;
+  window.BLOB_URL=id=>SERVER+"/original/"+encodeURIComponent(id)+"?t="+encodeURIComponent(Auth.token||"");
+
+  function gateMsg(t,bad){ const m=document.getElementById("gate-msg"); if(m){ m.textContent=t||""; m.className="msg "+(bad?"bad":"muted"); } }
+  function signOut(){ Auth.token=null; Auth.name=null; LS.set("fc-token",null); LS.set("fc-name",null); location.reload(); }
+  window.FC_SIGN_OUT=signOut;
+
+  async function api(path, body, signal){
+    let r;
+    try{ r=await fetch(SERVER+path,{method:"POST",signal,headers:{"Content-Type":"application/json",...(Auth.token?{Authorization:"Bearer "+Auth.token}:{})},body:JSON.stringify(body||{})}); }
+    catch(e){ if(e&&e.name==="AbortError") throw {code:"cancelled"}; throw {code:"unavailable", message:"The conference server could not be reached. Check your internet connection and try again."}; }
+    let j={}; try{ j=await r.json(); }catch(e){}
+    if(r.status===401 && path!=="/login"){ signOut(); throw {code:"session_expired", message:j.error}; }
+    if(r.status===429) throw {code:"rate_limited", message:j.error};
+    if(!r.ok) throw {status:r.status, message:j.error||("The server answered "+r.status+".")};
+    return j;
+  }
+  function notify(){ for(const l of [...Store.listeners]) try{ l(); }catch(e){ console.error(e); } }
+  function saveBanner(msg){ let b=document.getElementById("save-banner"); if(!msg){ if(b) b.remove(); return; } if(!b){ b=document.createElement("div"); b.id="save-banner"; b.setAttribute("role","alert"); b.style.cssText="background:var(--danger);color:#fff;padding:10px 16px;font-weight:600;text-align:center"; document.body.prepend(b); } b.textContent=msg+" Records can still be read, but nothing new is saved until this is fixed."; }
+  async function loadAll(){ const j=await api("/api/data"); saveBanner(j.saveError); Store.data={children:{},conferences:{},settings:{},...j.data}; Store.rev=j.rev; Store.bootId=j.bootId; notify(); }
+  async function poll(){
+    if(document.hidden || !Auth.token) return;
+    try{
+      const j=await api("/api/changes",{since:Store.rev, bootId:Store.bootId});
+      if(j.reload){ await loadAll(); return; }
+      let any=false;
+      for(const [kind,docs] of Object.entries(j.changes||{})) for(const [id,doc] of Object.entries(docs)){ any=true; if(doc) Store.data[kind][id]=doc; else delete Store.data[kind][id]; }
+      Store.rev=j.rev; saveBanner(j.saveError); if(any) notify();
+    }catch(e){}
+  }
+
+  /* wake the server, which sleeps after 15 quiet minutes on Render's free plan */
+  async function wake(){
+    const t0=Date.now(); let tries=0;
+    while(Date.now()-t0<150000){
+      try{ const r=await fetch(SERVER+"/health",{cache:"no-store"}); if(r.ok){ const j=await r.json(); if(j.ready) return true; if(j.error){ gateMsg(j.error,true); return false; } } }catch(e){}
+      tries++; gateMsg(tries<2? "Connecting…" : "Waking the server. The first visit after a quiet stretch takes about a minute.");
+      await new Promise(r=>setTimeout(r, tries<3?2000:4000));
+    }
+    gateMsg("The server did not wake up. Try again in a minute.",true); return false;
+  }
+  function showGate(){
+    const g=document.getElementById("gate"); g.hidden=false;
+    const f=document.getElementById("gate-form"), b=document.getElementById("gate-btn"), c=document.getElementById("gate-code");
+    setTimeout(()=>c.focus(),50);
+    return new Promise(resolve=>{
+      f.onsubmit=async e=>{ e.preventDefault(); b.disabled=true; b.textContent="Signing in…";
+        try{ if(!(await wake())) throw {message:""}; const j=await api("/login",{passcode:c.value}); Auth.token=j.token; Auth.name=j.name; LS.set("fc-token",j.token); LS.set("fc-name",j.name); g.hidden=true; resolve(); }
+        catch(err){ if(err.message) gateMsg(err.message,true); b.disabled=false; b.textContent="Sign in"; c.select(); } };
+    });
+  }
+  async function start(){
+    if(!Auth.token) await showGate();
+    else { const g=document.getElementById("gate"); g.hidden=false; document.getElementById("gate-form").style.display="none"; const note=document.createElement("p"); note.className="muted"; note.id="gate-wait"; g.append(note);
+      const t=setTimeout(()=>{ note.textContent="Waking the server. The first visit after a quiet stretch takes about a minute."; },2500);
+      const ok=await wake(); clearTimeout(t); if(!ok){ note.textContent="The conference server could not be reached. Reload the page to try again."; note.style.color="var(--danger)"; throw new Error("down"); }
+      g.hidden=true; document.getElementById("gate-form").style.display=""; note.remove(); }
+    await loadAll();
+    setInterval(poll, 15000);
+    document.addEventListener("visibilitychange",()=>{ if(!document.hidden) poll(); });
+    const top=document.querySelector(".top-actions");
+    if(top){ const w=document.createElement("div"); w.className="who-chip"; w.innerHTML=`<span></span><button class="btn sm ghost" type="button">Sign out</button>`; w.firstChild.textContent=Auth.name||""; w.lastChild.onclick=signOut; top.prepend(w); }
+  }
+  Store.ready=start();
+
+  function snap(id,d){ return {id, exists:!!d, data:()=>d?JSON.parse(JSON.stringify(d)):undefined, metadata:{fromCache:false,hasPendingWrites:false}}; }
+  function query(kind){
+    const q={ limit(){return q}, where(){return q}, orderBy(){return q},
+      onSnapshot(next){ const fire=()=>{ const docs=Object.entries(Store.data[kind]||{}).map(([id,d])=>snap(id,d)); next({docs,size:docs.length,empty:!docs.length,docChanges:()=>[],metadata:{}}); }; Store.listeners.add(fire); setTimeout(fire,0); return ()=>Store.listeners.delete(fire); },
+      async get(){ const docs=Object.entries(Store.data[kind]||{}).map(([id,d])=>snap(id,d)); return {docs,size:docs.length,empty:!docs.length}; },
+      doc(id){ return docRef(kind+"/"+id); } };
+    return q;
+  }
+  function docRef(path){
+    const [kind,id]=path.split("/");
+    const write=async(op,extra)=>{ const r=await api("/api/write",{op,kind,id,...extra}); if(r.doc) Store.data[kind][id]=r.doc; else delete Store.data[kind][id]; notify(); };
+    return { id, path,
+      async get(){ return snap(id, Store.data[kind]?.[id]); },
+      onSnapshot(next){ const fire=()=>next(snap(id, Store.data[kind]?.[id])); Store.listeners.add(fire); setTimeout(fire,0); return ()=>Store.listeners.delete(fire); },
+      set:(data)=>write("set",{data}), update:(patch)=>write("update",{patch}), delete:()=>write("delete",{}) };
+  }
+  const db={ collection:query, doc:docRef };
+  const user={ id:async()=>Auth.name, can:async()=>true, canEdit:()=>true, isOwner:()=>false, profiles:async(ids)=>Object.fromEntries((ids||[]).map(i=>[i,{name:i}])) };
+
+  function blobToJpegB64(blob, max=1800){
+    return new Promise(async(resolve,reject)=>{
+      try{ const bmp=await createImageBitmap(blob); const s=Math.min(1,max/Math.max(bmp.width,bmp.height)); const cv=document.createElement("canvas"); cv.width=Math.round(bmp.width*s); cv.height=Math.round(bmp.height*s);
+        const c=cv.getContext("2d"); c.fillStyle="#fff"; c.fillRect(0,0,cv.width,cv.height); c.drawImage(bmp,0,0,cv.width,cv.height);
+        cv.toBlob(b=>{ const fr=new FileReader(); fr.onload=()=>resolve(String(fr.result).split(",")[1]); fr.onerror=reject; fr.readAsDataURL(b); },"image/jpeg",.85); }
+      catch(e){ reject({code:"image_rejected"}); }
+    });
+  }
+  function blobToB64(blob){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(String(fr.result).split(",")[1]); fr.onerror=rej; fr.readAsDataURL(blob); }); }
+  function looseJson(t){ t=String(t||"").trim(); try{ return JSON.parse(t); }catch(e){} const f=t.match(/```(?:json)?\s*([\s\S]*?)```/); if(f){ try{ return JSON.parse(f[1]); }catch(e){} } const a=t.indexOf("{"), b=t.lastIndexOf("}"); if(a>=0&&b>a){ try{ return JSON.parse(t.slice(a,b+1)); }catch(e){} } return undefined; }
+  async function ask(input, opts={}){
+    if(opts.signal?.aborted) throw {code:"cancelled"};
+    const content=[]; const imgs=opts.images? (Array.isArray(opts.images)?opts.images:[...(opts.images.length!=null&&!(opts.images instanceof Blob)?opts.images:[opts.images])]) : [];
+    for(const b of imgs) content.push({type:"image",source:{type:"base64",media_type:"image/jpeg",data:await blobToJpegB64(b)}});
+    const text=typeof input==="string"? input : (input||[]).map(t=>t.content).join("\n\n");
+    content.push({type:"text",text});
+    const j=await api("/api/read",{content, careful:!!opts.careful}, opts.signal);
+    return j;
+  }
+  const sample=Object.assign(async(input,opts)=>{ const j=await ask(input,opts); return {text:j.text, truncated:!!j.truncated, modelTierApplied:"default"}; }, {
+    limits:async()=>({maxPromptBytes:262144, images:{maxCount:5, maxInputBytes:20e6, mediaTypes:["image/jpeg","image/png","image/webp","image/gif"]}}),
+    json:async(input,opts)=>{ const j=await ask(input,opts); const v=looseJson(j.text); if(v===undefined) throw {code:"invalid_json", text:j.text}; return v; }
+  });
+  const assets={
+    async upload(blob){ const type=blob.type||"application/octet-stream"; const ext={"application/pdf":"pdf","image/jpeg":"jpg","image/png":"png","image/webp":"webp"}[type];
+      if(!ext) throw {code:"unsupported_type"};
+      let name=(blob.name||"form."+ext); if(!/\.(pdf|jpe?g|png|webp)$/i.test(name)) name+="."+ext;
+      const j=await api("/api/original",{name, data:await blobToB64(blob)});
+      return {id:j.id, url:window.BLOB_URL(j.id), sizeBytes:j.sizeBytes, contentType:type}; }
+  };
+  const downloads={ async save({filename,data}){ const blob=data instanceof Blob? data : new Blob([data]); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=filename; document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); return {status:"saved"}; } };
+  const caps={db,user,sample,assets,downloads};
+  window.claude={ use:async(name)=>{ await Store.ready; return caps[name]||null; } };
+  window.addEventListener("pagehide",()=>{ try{ if(Auth.token) navigator.sendBeacon && fetch(SERVER+"/api/save-now",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json",Authorization:"Bearer "+Auth.token},body:"{}"}); }catch(e){} });
+})();
+</script>
