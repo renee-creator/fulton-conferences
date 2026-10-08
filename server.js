@@ -106,7 +106,7 @@ let rev = 0; const changeLog = []; const BOOT_ID = crypto.randomBytes(6).toStrin
 function noteChange(kind, id) { rev++; changeLog.push({ rev, kind, id }); if (changeLog.length > 5000) changeLog.splice(0, 1000); }
 
 async function loadAll() {
-  if (!githubToken()) { store.error = 'No GITHUB_TOKEN is saved on Render. Add it under Environment.'; return; }
+  if (!githubToken()) { store.error = 'No GITHUB_TOKEN is saved on Render. Add it under Environment.'; log(store.error); return; }
   try {
     const repo = await gh('GET', `/repos/${RECORDS_REPO}`);
     if (repo.status === 404) throw new Error(`The records repository ${RECORDS_REPO} was not found, or the GitHub token cannot see it. Check RECORDS_REPO and give the token access to that repository.`);
@@ -361,6 +361,7 @@ process.on('SIGTERM', () => stop('SIGTERM')); process.on('SIGINT', () => stop('S
 server.listen(PORT, () => {
   log('Conference server on port', PORT, 'records in', RECORDS_REPO);
   log(TEACHERS.length + ' teacher passcodes set');
+  log('GitHub key ' + (githubToken() ? 'saved' : 'MISSING') + ', Anthropic key ' + (anthropicKey() ? 'saved' : 'MISSING'));
   loadAll();
 });
 module.exports = { deepMerge, checkSession, makeSession };
