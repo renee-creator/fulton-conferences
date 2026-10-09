@@ -23,12 +23,16 @@
    Records live in a private GitHub repository behind that server. */
 (function(){
   const qs=new URLSearchParams(location.search);
-  const SERVER=(qs.get("server")||"https://fulton-conferences.onrender.com").replace(/\/+$/,"");
+  // only the school's own server, or a local test server when the page itself is opened locally
+  const DEFAULT_SERVER="https://fulton-conferences.onrender.com";
+  const want=(qs.get("server")||"").replace(/\/+$/,"");
+  const local=/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(want);
+  const SERVER= local? want : DEFAULT_SERVER;
   const LS={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}};
   const Auth={token:LS.get("fc-token"), name:LS.get("fc-name")};
-  const Store={data:{children:{},conferences:{},settings:{}}, rev:0, bootId:"", listeners:new Set(), ready:null};
+  const Store={data:{children:{},conferences:{},settings:{}}, rev:0, bootId:"", listeners:new Set(), ready:null, fileKey:"", wroteAt:{}};
   window.CAREFUL_READ=true;
-  window.BLOB_URL=id=>SERVER+"/original/"+encodeURIComponent(id)+"?t="+encodeURIComponent(Auth.token||"");
+  window.BLOB_URL=id=>SERVER+"/original/"+encodeURIComponent(id)+"?t="+encodeURIComponent(Store.fileKey||"");
 
   function gateMsg(t,bad){ const m=document.getElementById("gate-msg"); if(m){ m.textContent=t||""; m.className="msg "+(bad?"bad":"muted"); } }
   function signOut(){ Auth.token=null; Auth.name=null; LS.set("fc-token",null); LS.set("fc-name",null); location.reload(); }
@@ -36,7 +40,10 @@
 
   async function api(path, body, signal){
     let r;
-    try{ r=await fetch(SERVER+path,{method:"POST",signal,headers:{"Content-Type":"application/json",...(Auth.token?{Authorization:"Bearer "+Auth.token}:{})},body:JSON.stringify(body||{})}); }
+    const payload=JSON.stringify(body||{});
+    // while the page is closing, let the last save finish in the background
+    const keepalive=document.visibilityState==="hidden" && payload.length<60000;
+    try{ r=await fetch(SERVER+path,{method:"POST",signal,keepalive,headers:{"Content-Type":"application/json",...(Auth.token?{Authorization:"Bearer "+Auth.token}:{})},body:payload}); }
     catch(e){ if(e&&e.name==="AbortError") throw {code:"cancelled"}; throw {code:"unavailable", message:"The conference server could not be reached. Check your internet connection and try again."}; }
     let j={}; try{ j=await r.json(); }catch(e){}
     if(r.status===401 && path!=="/login"){ signOut(); throw {code:"session_expired", message:j.error}; }
@@ -45,17 +52,21 @@
     return j;
   }
   function notify(){ for(const l of [...Store.listeners]) try{ l(); }catch(e){ console.error(e); } }
-  function saveBanner(msg){ let b=document.getElementById("save-banner"); if(!msg){ if(b) b.remove(); return; } if(!b){ b=document.createElement("div"); b.id="save-banner"; b.setAttribute("role","alert"); b.style.cssText="background:var(--danger);color:#fff;padding:10px 16px;font-weight:600;text-align:center"; document.body.prepend(b); } b.textContent=msg+" Records can still be read, but nothing new is saved until this is fixed."; }
-  async function loadAll(){ const j=await api("/api/data"); saveBanner(j.saveError); Store.data={children:{},conferences:{},settings:{},...j.data}; Store.rev=j.rev; Store.bootId=j.bootId; notify(); }
+  function saveBanner(msg, warn){ let b=document.getElementById("save-banner"); if(!msg){ if(b) b.remove(); return; } if(!b){ b=document.createElement("div"); b.id="save-banner"; b.setAttribute("role","alert"); b.style.cssText=(warn?"background:#8a5a00;":"background:var(--danger);")+"color:#fff;padding:10px 16px;font-weight:600;text-align:center"; document.body.prepend(b); } b.textContent=warn? msg : msg+" Records can still be read, but nothing new is saved until this is fixed."; b.style.background=warn?"#8a5a00":"var(--danger)"; }
+  async function loadAll(){ const j=await api("/api/data"); saveBanner(j.saveError||j.saveWarn, !j.saveError); if(j.fileKey) Store.fileKey=j.fileKey; Store.data={children:{},conferences:{},settings:{},...j.data}; Store.rev=j.rev; Store.bootId=j.bootId; notify(); }
+  let polling=false;
   async function poll(){
-    if(document.hidden || !Auth.token) return;
+    if(document.hidden || !Auth.token || polling) return;
+    polling=true; const sent=Date.now();
     try{
       const j=await api("/api/changes",{since:Store.rev, bootId:Store.bootId});
       if(j.reload){ await loadAll(); return; }
       let any=false;
-      for(const [kind,docs] of Object.entries(j.changes||{})) for(const [id,doc] of Object.entries(docs)){ any=true; if(doc) Store.data[kind][id]=doc; else delete Store.data[kind][id]; }
-      Store.rev=j.rev; saveBanner(j.saveError); if(any) notify();
-    }catch(e){}
+      for(const [kind,docs] of Object.entries(j.changes||{})) for(const [id,doc] of Object.entries(docs)){
+        if((Store.wroteAt[kind+"/"+id]||0)>=sent) continue;   // this browser saved it after the check left, so its copy is newer
+        any=true; if(doc) Store.data[kind][id]=doc; else delete Store.data[kind][id]; }
+      if(j.rev>Store.rev) Store.rev=j.rev; if(j.fileKey) Store.fileKey=j.fileKey; saveBanner(j.saveError||j.saveWarn, !j.saveError); if(any) notify();
+    }catch(e){} finally{ polling=false; }
   }
 
   /* wake the server, which sleeps after 15 quiet minutes on Render's free plan */
@@ -102,11 +113,11 @@
   }
   function docRef(path){
     const [kind,id]=path.split("/");
-    const write=async(op,extra)=>{ const r=await api("/api/write",{op,kind,id,...extra}); if(r.doc) Store.data[kind][id]=r.doc; else delete Store.data[kind][id]; notify(); };
+    const write=async(op,extra)=>{ const r=await api("/api/write",{op,kind,id,...extra}); Store.wroteAt[kind+"/"+id]=Date.now(); if(r.doc) Store.data[kind][id]=r.doc; else delete Store.data[kind][id]; notify(); return r.doc; };
     return { id, path,
       async get(){ return snap(id, Store.data[kind]?.[id]); },
       onSnapshot(next){ const fire=()=>next(snap(id, Store.data[kind]?.[id])); Store.listeners.add(fire); setTimeout(fire,0); return ()=>Store.listeners.delete(fire); },
-      set:(data)=>write("set",{data}), update:(patch)=>write("update",{patch}), delete:()=>write("delete",{}) };
+      set:(data)=>write("set",{data}), create:(data)=>write("create",{data}), update:(patch)=>write("update",{patch}), delete:()=>write("delete",{}) };
   }
   const db={ collection:query, doc:docRef };
   const user={ id:async()=>Auth.name, can:async()=>true, canEdit:()=>true, isOwner:()=>false, profiles:async(ids)=>Object.fromEntries((ids||[]).map(i=>[i,{name:i}])) };

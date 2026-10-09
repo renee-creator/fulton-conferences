@@ -54,6 +54,13 @@ const SESSION_DAYS = 60;
 function b64u(buf) { return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function sign(body) { return b64u(crypto.createHmac('sha256', SECRET).update(body).digest()); }
 function makeSession(name) { const body = b64u(JSON.stringify({ n: name, e: Date.now() + SESSION_DAYS * 864e5 })); return body + '.' + sign(body); }
+function makeFileKey() { const body = b64u(JSON.stringify({ f: 1, e: Date.now() + 12 * 36e5 })); return body + '.' + sign(body); }
+function checkFileKey(tok) {
+  if (!tok || tok.length > 300) return false;
+  const [body, mac] = tok.split('.'); if (!body || !mac) return false;
+  const want = sign(body); if (want.length !== mac.length || !crypto.timingSafeEqual(Buffer.from(want), Buffer.from(mac))) return false;
+  try { const s = JSON.parse(Buffer.from(body.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')); return s && s.f === 1 && s.e > Date.now(); } catch (e) { return false; }
+}
 function readSession(req) {
   const h = String(req.headers.authorization || '');
   const tok = h.startsWith('Bearer ') ? h.slice(7).trim() : '';
@@ -77,10 +84,11 @@ function matchPasscode(given) {
   for (const t of TEACHERS) if (crypto.timingSafeEqual(h, t.hash)) hit = t;
   return hit;
 }
-const wrongTries = new Map();
-function who(req) { const f = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim(); return f || (req.socket && req.socket.remoteAddress) || 'unknown'; }
-function blocked(ip) { const t = wrongTries.get(ip); return !!t && t.until > Date.now() && t.count >= 10; }
-function noteWrong(ip) { const now = Date.now(); if (wrongTries.size > 5000) wrongTries.clear(); const t = wrongTries.get(ip); if (!t || t.until <= now) wrongTries.set(ip, { count: 1, until: now + 600000 }); else t.count++; }
+const wrongTries = new Map(); let wrongAll = [];
+// Render adds the visitor's real address as the last entry, and earlier entries can be made up by the sender
+function who(req) { const parts = String(req.headers['x-forwarded-for'] || '').split(',').map(s => s.trim()).filter(Boolean); return parts[parts.length - 1] || (req.socket && req.socket.remoteAddress) || 'unknown'; }
+function blocked(ip) { const now = Date.now(); wrongAll = wrongAll.filter(t => t > now - 600000); if (wrongAll.length >= 60) return true; const t = wrongTries.get(ip); return !!t && t.until > now && t.count >= 10; }
+function noteWrong(ip) { const now = Date.now(); wrongAll.push(now); if (wrongTries.size > 5000) for (const [k, v] of wrongTries) if (v.until <= now) wrongTries.delete(k); const t = wrongTries.get(ip); if (!t || t.until <= now) wrongTries.set(ip, { count: 1, until: now + 600000 }); else t.count++; }
 
 /* ---------- GitHub storage ---------- */
 function gh(method, path, body) {
@@ -92,7 +100,7 @@ function gh(method, path, body) {
       'Authorization': 'Bearer ' + githubToken(), 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28',
       'User-Agent': 'fulton-conferences', ...(data ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) } : {}) } }, res => {
       const chunks = []; res.on('data', c => chunks.push(c));
-      res.on('end', () => { const text = Buffer.concat(chunks).toString('utf8'); let json = null; try { json = JSON.parse(text); } catch (e) {} resolve({ status: res.statusCode, json, text }); });
+      res.on('end', () => { const text = Buffer.concat(chunks).toString('utf8'); let json = null; try { json = JSON.parse(text); } catch (e) {} resolve({ status: res.statusCode, json, text, headers: res.headers }); });
       res.on('error', reject);
     });
     req.setTimeout(60000, () => req.destroy(new Error('GitHub did not answer in time')));
@@ -103,10 +111,14 @@ function gh(method, path, body) {
 const store = { ready: false, error: '', branch: 'main', recs: { children: new Map(), conferences: new Map(), settings: new Map() }, originals: new Map(), loadedAt: 0, saveError: '' };
 const KEY_NO_WRITE = 'GitHub will not let the access key save changes. On GitHub, edit the Conference records token and set Contents to Read and write.';
 const KEY_PROBLEM = 'GitHub rejected the access key, so changes cannot be saved. The GitHub token on Render has probably expired. Renew it on GitHub and paste the new one into GITHUB_TOKEN on Render.';
+const SAVE_WAIT = 'Changes are taking longer than usual to reach GitHub. They are kept on the server and saving keeps trying, so keep working, and avoid closing the app for a few minutes.';
+function isRateLimit(r) { return r.status === 429 || (r.status === 403 && (/rate limit|abuse/i.test((r.json && r.json.message) || '') || !!(r.headers && (r.headers['retry-after'] || r.headers['x-ratelimit-remaining'] === '0')))); }
 let rev = 0; const changeLog = []; const BOOT_ID = crypto.randomBytes(6).toString('hex');
 function noteChange(kind, id) { rev++; changeLog.push({ rev, kind, id }); if (changeLog.length > 5000) changeLog.splice(0, 1000); }
 
-async function loadAll() {
+let loading = null;
+function loadAll() { if (!loading) loading = doLoad().finally(() => { loading = null; if (!store.ready && githubToken()) setTimeout(loadAll, 60000); }); return loading; }
+async function doLoad() {
   if (!githubToken()) { store.error = 'No GITHUB_TOKEN is saved on Render. Add it under Environment.'; log(store.error); return; }
   try {
     const repo = await gh('GET', `/repos/${RECORDS_REPO}`);
@@ -142,7 +154,8 @@ async function loadAll() {
 }
 
 // Saving to GitHub. Each file is saved by one chain at a time, and quick edits are gathered.
-const chains = new Map(); const timers = new Map(); const dirtyPaths = new Map();
+const chains = new Map(); const timers = new Map(); const dirtyPaths = new Map(); const failingSince = new Map();
+function saveWarn() { const now = Date.now(); for (const t of failingSince.values()) if (now - t > 90000) return SAVE_WAIT; return ''; }
 function scheduleSave(kind, id) {
   const path = `${kind}/${id}.json`; dirtyPaths.set(path, { kind, id });
   clearTimeout(timers.get(path));
@@ -152,11 +165,15 @@ function flushPath(path) {
   clearTimeout(timers.get(path)); timers.delete(path);
   const item = dirtyPaths.get(path); if (!item) return chains.get(path) || Promise.resolve();
   dirtyPaths.delete(path);
-  const run = (chains.get(path) || Promise.resolve()).then(() => writeFile(item.kind, item.id)).catch(e => { log('Save failed', path, e.message); dirtyPaths.set(path, item); timers.set(path, setTimeout(() => flushPath(path), 30000)); });
+  const run = (chains.get(path) || Promise.resolve()).then(() => writeFile(item.kind, item.id)).then(() => { failingSince.delete(path); }, e => {
+    log('Save failed', path, e.message); if (!failingSince.has(path)) failingSince.set(path, Date.now());
+    if (!dirtyPaths.has(path)) dirtyPaths.set(path, item);
+    if (!stopping) { clearTimeout(timers.get(path)); timers.set(path, setTimeout(() => flushPath(path), 30000)); } });
   chains.set(path, run);
   return run;
 }
-async function flushEverything() { await Promise.all([...dirtyPaths.keys()].map(flushPath)); await Promise.all([...chains.values()]); }
+// true when everything waiting reached GitHub
+async function flushEverything() { await Promise.all([...dirtyPaths.keys()].map(flushPath)); await Promise.all([...chains.values()]); return dirtyPaths.size === 0; }
 async function currentSha(path) { const r = await gh('GET', `/repos/${RECORDS_REPO}/contents/${path}?ref=${encodeURIComponent(store.branch)}`); return r.status === 200 ? r.json.sha : null; }
 async function writeFile(kind, id) {
   const rec = store.recs[kind].get(id); const path = `${kind}/${id}.json`;
@@ -164,9 +181,10 @@ async function writeFile(kind, id) {
     let r;
     if (!rec || rec.deleted) {
       const shaNow = (rec && rec.sha) || await currentSha(path);
-      if (!shaNow) { store.recs[kind].delete(id); return; }
+      const forget = () => { const now = store.recs[kind].get(id); if (!now || now === rec) store.recs[kind].delete(id); };   // keep a record made again since the delete
+      if (!shaNow) { forget(); return; }
       r = await gh('DELETE', `/repos/${RECORDS_REPO}/contents/${path}`, { message: `Remove ${kind} ${id}`, sha: shaNow, branch: store.branch });
-      if (r.status === 200 || r.status === 404) { store.recs[kind].delete(id); return; }
+      if (r.status === 200 || r.status === 404) { forget(); return; }
     } else {
       const content = Buffer.from(JSON.stringify(rec.doc, null, 2) + '\n', 'utf8').toString('base64');
       const by = rec.doc.updatedByName ? ` by ${rec.doc.updatedByName}` : '';
@@ -174,12 +192,23 @@ async function writeFile(kind, id) {
       if (r.status === 200 || r.status === 201) { rec.sha = r.json.content.sha; store.saveError = ''; return; }
     }
     if (r.status === 409 || r.status === 422) { const s = await currentSha(path); if (rec) rec.sha = s || undefined; continue; }   // changed on GitHub directly, keep the app's copy
+    if (isRateLimit(r)) { log('GitHub asked to slow down'); throw new Error('GitHub rate limit, trying again shortly'); }
     if (r.status === 401) { store.saveError = KEY_PROBLEM; log('GitHub rejected the token'); }
     if (r.status === 403) { store.saveError = KEY_NO_WRITE; log('GitHub key cannot write'); }
     throw new Error('GitHub answered ' + r.status + ' ' + (r.json && r.json.message || ''));
   }
   throw new Error('GitHub kept refusing the save');
 }
+
+async function probeKey() {
+  if (!store.saveError || !store.ready) return;
+  try {
+    const path = 'server-check.json'; const sha0 = await currentSha(path);
+    const r = await gh('PUT', `/repos/${RECORDS_REPO}/contents/${path}`, { message: 'Check that saving works again', content: Buffer.from(JSON.stringify({ checkedAt: new Date().toISOString() }) + '\n').toString('base64'), branch: store.branch, ...(sha0 ? { sha: sha0 } : {}) });
+    if (r.status === 200 || r.status === 201) { store.saveError = ''; log('Saving to GitHub works again'); for (const p of dirtyPaths.keys()) flushPath(p); }
+  } catch (e) {}
+}
+setInterval(probeKey, 120000).unref();
 
 function deepMerge(target, patch) {
   for (const [k, v] of Object.entries(patch || {})) {
@@ -239,6 +268,7 @@ function readBody(req) {
     req.on('error', reject);
   });
 }
+let readTimes = []; let readsRunning = 0; let stopping = false;
 function snapshot() {
   const out = {}; for (const k of KINDS) { out[k] = {}; for (const [id, r] of store.recs[k]) if (!r.deleted) out[k][id] = r.doc; }
   return out;
@@ -248,9 +278,10 @@ function statusPage(req, res) {
   const lines = [
     [store.ready, store.ready ? `Records are connected. ${store.recs.children.size} children and ${store.recs.conferences.size} conferences are loaded from ${RECORDS_REPO}.` : (store.error || 'Records are still loading.')],
     [!!anthropicKey(), anthropicKey() ? 'An Anthropic key is saved, so reading forms is available.' : 'No Anthropic key is saved. Add ANTHROPIC_API_KEY under Environment to read forms.'],
-    [TEACHERS.length > 0, TEACHERS.length ? `${TEACHERS.length} educator passcodes are set (${TEACHERS.map(t => esc(t.name)).join(', ')}).` : 'No educator passcodes are set. Add TEACHER_PASSCODES under Environment, like Hannah=maple garden 42.'],
+    [TEACHERS.length > 0, TEACHERS.length ? `${TEACHERS.length} educator passcodes are set.` : 'No educator passcodes are set. Add TEACHER_PASSCODES under Environment, like Hannah=maple garden 42.'],
   ];
   if (store.saveError) lines.unshift([false, store.saveError]);
+  else if (saveWarn()) lines.unshift([false, saveWarn()]);
   if (SKIPPED_PASSCODES) lines.push([false, `${SKIPPED_PASSCODES} passcode entries were ignored. Each must be a passcode of at least 6 characters, or Name=passcode.`]);
   const html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Conference server status</title></head><body style="font-family:system-ui,sans-serif;font-size:18px;line-height:1.5;max-width:680px;margin:32px auto;padding:0 16px"><h1 style="font-size:22px">Family Conferences server</h1><p>The server is running.</p>' +
     lines.map(([ok, t]) => `<p style="font-weight:600;color:${ok ? '#1a7f37' : '#b42318'}">${ok ? 'WORKING.' : 'NEEDS ATTENTION.'} ${t}</p>`).join('') +
@@ -262,12 +293,13 @@ async function handle(req, res) {
   const url = new URL(req.url || '/', 'http://x'); const path = url.pathname;
   if (req.method === 'OPTIONS') { send(req, res, 204, {}, undefined); return; }
   if (req.method === 'GET' && (path === '/' || path === '/status')) { statusPage(req, res); return; }
-  if (req.method === 'GET' && path === '/health') { json(req, res, 200, { ok: true, ready: store.ready, error: store.error || undefined, saveError: store.saveError || undefined, bootId: BOOT_ID }); return; }
+  if (req.method === 'GET' && path === '/health') { json(req, res, 200, { ok: true, ready: store.ready, error: store.error || undefined, saveError: store.saveError || undefined, saveWarn: saveWarn() || undefined, bootId: BOOT_ID }); return; }
 
   // original form files are opened in an img or a new tab, which cannot send a header, so the session rides in the address
   if (req.method === 'GET' && path.startsWith('/original/')) {
-    if (!checkSession(url.searchParams.get('t') || '')) { send(req, res, 403, { 'Content-Type': 'text/plain' }, 'Sign in to the conference app first.'); return; }
-    const id = decodeURIComponent(path.slice(10)); const o = store.originals.get(id);
+    if (!checkFileKey(url.searchParams.get('t') || '')) { send(req, res, 403, { 'Content-Type': 'text/plain' }, 'This link has expired. Open the form again from the conference app.'); return; }
+    let id = ''; try { id = decodeURIComponent(path.slice(10)); } catch (e) {}
+    const o = store.originals.get(id);
     if (!o || !ID_RE.test(id)) { send(req, res, 404, { 'Content-Type': 'text/plain' }, 'Not found'); return; }
     const b = await gh('GET', `/repos/${RECORDS_REPO}/git/blobs/${o.sha}`);
     if (b.status !== 200) { send(req, res, 502, { 'Content-Type': 'text/plain' }, 'Could not load the file from GitHub.'); return; }
@@ -297,20 +329,26 @@ async function handle(req, res) {
 
   const me = readSession(req);
   if (!me) { err(req, res, 401, 'Please sign in again.'); return; }
-  if (!store.ready) { if (!store.loadedAt) await loadAll(); if (!store.ready) { err(req, res, 503, store.error || 'Records are still loading. Try again in a moment.'); return; } }
+  if (!store.ready) { await loadAll(); if (!store.ready) { err(req, res, 503, store.error || 'Records are still loading. Try again in a moment.'); return; } }
 
-  if (path === '/api/data') { json(req, res, 200, { saveError: store.saveError || undefined, bootId: BOOT_ID, rev, me: me.name, teachers: TEACHERS.map(x => x.name), data: snapshot() }); return; }
+  if (path === '/api/data') { json(req, res, 200, { saveError: store.saveError || undefined, saveWarn: saveWarn() || undefined, fileKey: makeFileKey(), bootId: BOOT_ID, rev, me: me.name, teachers: TEACHERS.map(x => x.name), data: snapshot() }); return; }
   if (path === '/api/changes') {
     if (body.bootId !== BOOT_ID || !(body.since >= 0) || (changeLog.length && body.since < changeLog[0].rev - 1)) { json(req, res, 200, { reload: true }); return; }
     const out = {}; for (const c of changeLog) if (c.rev > body.since) { out[c.kind] = out[c.kind] || {}; const r = store.recs[c.kind].get(c.id); out[c.kind][c.id] = r && !r.deleted ? r.doc : null; }
-    json(req, res, 200, { bootId: BOOT_ID, rev, changes: out, saveError: store.saveError || undefined }); return;
+    json(req, res, 200, { bootId: BOOT_ID, rev, changes: out, saveError: store.saveError || undefined, saveWarn: saveWarn() || undefined, fileKey: makeFileKey() }); return;
   }
   if (path === '/api/write') {
     if (store.saveError) { err(req, res, 503, store.saveError + ' Your last change was not saved, so keep a copy of it.'); return; }
+    if (stopping) { err(req, res, 503, 'The server is restarting. Your change was not saved yet, so type it again in a minute.'); return; }
     const { op, kind, id } = body;
     if (!KINDS.includes(kind) || typeof id !== 'string' || !ID_RE.test(id)) { err(req, res, 400, 'That record name is not valid.'); return; }
     const map = store.recs[kind]; const cur = map.get(id);
-    if (op === 'set') { if (!body.data || typeof body.data !== 'object') { err(req, res, 400, 'Missing data'); return; } map.set(id, { doc: Object.assign({}, body.data, { updatedByName: me.name }), sha: cur && cur.sha, path: `${kind}/${id}.json` }); }
+    if (op === 'create') {   // start a record only if nobody else has, and hand back whichever exists
+      if (cur && !cur.deleted) { json(req, res, 200, { ok: true, rev, doc: cur.doc, existed: true }); return; }
+      if (!body.data || typeof body.data !== 'object') { err(req, res, 400, 'Missing data'); return; }
+      map.set(id, { doc: Object.assign({}, body.data, { updatedByName: me.name }), sha: cur && cur.sha, path: `${kind}/${id}.json` });
+    }
+    else if (op === 'set') { if (!body.data || typeof body.data !== 'object') { err(req, res, 400, 'Missing data'); return; } map.set(id, { doc: Object.assign({}, body.data, { updatedByName: me.name }), sha: cur && cur.sha, path: `${kind}/${id}.json` }); }
     else if (op === 'update') { if (!cur || cur.deleted) { err(req, res, 404, 'That record no longer exists. It may have been deleted by someone else.'); return; } deepMerge(cur.doc, body.patch || {}); cur.doc.updatedByName = me.name; }
     else if (op === 'delete') { if (cur) cur.deleted = true; else { json(req, res, 200, { ok: true, rev }); return; } }
     else { err(req, res, 400, 'Unknown change'); return; }
@@ -318,15 +356,16 @@ async function handle(req, res) {
     const r = map.get(id);
     json(req, res, 200, { ok: true, rev, doc: r && !r.deleted ? r.doc : null }); return;
   }
-  if (path === '/api/save-now') { try { await flushEverything(); json(req, res, 200, { ok: true }); } catch (e) { err(req, res, 502, 'Saving to GitHub failed. ' + e.message); } return; }
+  if (path === '/api/save-now') { const ok = await flushEverything().catch(() => false); if (ok) json(req, res, 200, { ok: true }); else err(req, res, 502, 'Some changes have not reached GitHub yet. Saving keeps trying.'); return; }
   if (path === '/api/original') {
     const name = String(body.name || 'file').toLowerCase().replace(/[^a-z0-9._-]+/g, '-').slice(-60);
     const ext = (name.match(/\.(pdf|jpe?g|png|webp)$/) || [])[1];
     if (!ext || typeof body.data !== 'string') { err(req, res, 400, 'Only PDF, JPEG, PNG and WebP files can be kept as originals.'); return; }
     const buf = Buffer.from(body.data, 'base64');
-    if (buf.length > 20 * 1024 * 1024) { err(req, res, 413, 'That file is larger than 20 MB.'); return; }
+    if (buf.length > 15 * 1024 * 1024) { err(req, res, 413, 'That file is larger than 15 MB. Save it smaller or as fewer pages.'); return; }
     const id = crypto.randomBytes(6).toString('hex') + '-' + name.replace(/^[^a-z0-9]+/, '');
     const r = await gh('PUT', `/repos/${RECORDS_REPO}/contents/originals/${id}`, { message: `Add original form by ${me.name}`, content: buf.toString('base64'), branch: store.branch });
+    if (isRateLimit(r)) { err(req, res, 429, 'GitHub is busy. Wait a minute and try again.'); return; }
     if (r.status === 401 || r.status === 403) { store.saveError = r.status === 401 ? KEY_PROBLEM : KEY_NO_WRITE; err(req, res, 503, store.saveError); return; }
     if (r.status !== 201 && r.status !== 200) { err(req, res, 502, 'GitHub would not store the file. ' + ((r.json && r.json.message) || r.status)); return; }
     store.originals.set(id, { path: `originals/${id}`, sha: r.json.content.sha, size: buf.length });
@@ -334,6 +373,10 @@ async function handle(req, res) {
   }
   if (path === '/api/read') {
     if (!anthropicKey()) { err(req, res, 503, 'Reading forms is not set up. Add the Anthropic key on Render.'); return; }
+    const now = Date.now(); readTimes = readTimes.filter(t => t.at > now - 36e5);
+    if (readTimes.length >= 400 || (body.careful && readTimes.filter(t => t.careful).length >= 80)) { err(req, res, 429, 'Many forms have been read in the last hour. Wait a little and try again.'); return; }
+    if (readsRunning >= 6) { err(req, res, 429, 'Several forms are being read right now. Try again in a moment.'); return; }
+    readTimes.push({ at: now, careful: !!body.careful }); readsRunning++;
     const content = body.content;
     if (!Array.isArray(content) || !content.length || content.length > 12) { err(req, res, 400, 'Nothing to read'); return; }
     const okBlock = b => b && ((b.type === 'text' && typeof b.text === 'string') || (b.type === 'image' && b.source && b.source.type === 'base64' && /^image\/(jpeg|png|webp|gif)$/.test(b.source.media_type)));
@@ -346,18 +389,30 @@ async function handle(req, res) {
       log('Form read for', me.name, msg.model, msg.usage ? `${msg.usage.input_tokens} in, ${msg.usage.output_tokens} out` : '');
       json(req, res, 200, { text, model: msg.model, truncated: msg.stop_reason === 'max_tokens' });
     } catch (e) { err(req, res, 502, 'Could not reach Claude. ' + e.message); }
+    finally { readsRunning--; }
     return;
   }
   err(req, res, 404, 'Not found');
 }
 
-const server = http.createServer((req, res) => { handle(req, res).catch(e => { log('Request error', e && e.stack); err(req, res, 500, 'Server error. ' + (e && e.message)); }); });
+const server = http.createServer((req, res) => { handle(req, res).catch(e => { log('Request error', e && e.stack); err(req, res, 500, 'Something went wrong on the server. Try again.'); }); });
 server.on('clientError', (e, socket) => { try { socket.destroy(); } catch (x) {} });
 process.on('uncaughtException', e => log('Unexpected error, server kept running', e && e.stack));
 process.on('unhandledRejection', e => log('Unexpected rejection, server kept running', e));
 // Render stops the server when it sleeps or redeploys. Save anything waiting first.
-let stopping = false;
-async function stop(sig) { if (stopping) return; stopping = true; log('Stopping on', sig, 'saving waiting changes'); try { await Promise.race([flushEverything(), new Promise(r => setTimeout(r, 25000))]); } catch (e) {} process.exit(0); }
+async function stop(sig) {
+  if (stopping) return; stopping = true; log('Stopping on', sig, 'saving waiting changes');
+  try { server.close(); } catch (e) {}
+  const until = Date.now() + 25000;
+  while (Date.now() < until) {
+    for (const t of timers.values()) clearTimeout(t);
+    const ok = await Promise.race([flushEverything().catch(() => false), new Promise(r => setTimeout(() => r(false), Math.max(1000, until - Date.now())))]);
+    if (ok) { log('All changes saved'); break; }
+    await new Promise(r => setTimeout(r, 3000));
+  }
+  if (dirtyPaths.size) log('Stopped with', dirtyPaths.size, 'changes not saved to GitHub');
+  process.exit(0);
+}
 process.on('SIGTERM', () => stop('SIGTERM')); process.on('SIGINT', () => stop('SIGINT'));
 
 server.listen(PORT, () => {

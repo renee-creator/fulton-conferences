@@ -280,6 +280,7 @@ const S = {
 };
 S.period = currentPeriod();
 try{ const f = JSON.parse(localStorage.getItem("fcf-filters")||"null"); if(f) Object.assign(S.filters,f); }catch(e){}
+function checkFilters(){ const f=S.filters; if(f.room!=="All" && !(S.settings.classrooms||[]).includes(f.room)) f.room="All"; if(f.edu && f.edu!=="All" && !educatorsFor().includes(f.edu)) f.edu="All"; }
 
 /* ---------- helpers ---------- */
 const $ = (s,r=document)=>r.querySelector(s);
@@ -293,10 +294,12 @@ function toISODate(s){
   s = String(s).trim();
   if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
   const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
-  if(m){ let y = +m[3]; if(y<100) y += 2000; return `${y}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`; }
+  if(m){ let y=+m[3], mo=+m[1], d=+m[2]; if(y<100) y+=2000; if(mo>12 && d<=12) [mo,d]=[d,mo];
+    const t=new Date(y,mo-1,d,12); if(mo<1||mo>12||d<1||t.getMonth()!==mo-1) return "";
+    return `${y}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
   if(!/\b(19|20)\d{2}\b/.test(s)) return ""; // no year written, so do not guess one
   if(!/\b\d{1,2}(st|nd|rd|th)?\b/i.test(s.replace(/\b(19|20)\d{2}\b/,""))) return ""; // no day written, so do not invent the 1st
-  const d = new Date(s); if(!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const d = new Date(s.replace(/(\d)(st|nd|rd|th)\b/gi,"$1")); if(!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   return "";
 }
 function fmtDate(iso, opts={month:"short",day:"numeric",year:"numeric"}){ if(!iso) return ""; const d=new Date(iso.length===10?iso+"T12:00:00":iso); return isNaN(d)?iso:d.toLocaleDateString(undefined,opts); }
@@ -316,7 +319,14 @@ function currentPeriod(d=new Date()){
 function periodFromDate(iso){ if(!iso) return null; const d=new Date(iso+"T12:00:00"); return isNaN(d)?null:currentPeriod(d); }
 const periodLabel = p => `${p.term} ${p.term==="Fall"? "20"+p.year.slice(2,4) : "20"+p.year.slice(5,7)}`;
 function confLabel(cf){ if(!cf) return ""; if(cf.term==="Historical") return "Earlier conferences, date unknown"; if(cf.term==="Additional") return `Additional · ${cf.schoolYear}`; return `${cf.term} ${cf.schoolYear}`; }
-function confKey(c){ return c.term==="Historical"? "0000" : (c.confDate||c.createdAt||""); }
+function confKey(c){
+  if(c.term==="Historical") return "0000";
+  if(c.confDate) return c.confDate;
+  const y=parseInt(c.schoolYear,10);
+  if(Number.isFinite(y) && c.term==="Fall") return `${y}-10-15`;
+  if(Number.isFinite(y) && c.term==="Spring") return `${y+1}-03-15`;
+  return c.createdAt||"";
+}
 function findConf(childId, year, term){
   if(term==="Additional") return null;
   if(term==="Historical") return Object.values(S.confs).find(c=>c.childId===childId&&c.term==="Historical");
@@ -487,7 +497,7 @@ function render(){
   const app=$("#app");
   if(S.dbState==="absent"){ app.innerHTML = `<div class="panel stack" style="max-width:640px;margin:40px auto"><h2>Open this page inside Claude</h2><p>Conference records are saved to a shared store that is available when this page is opened from Claude while signed in. Open it from your Claude artifacts to see the roster and conference records.</p></div>`; return; }
   if(!S.loaded.children || !S.loaded.confs){ app.innerHTML = `<div class="empty"><span class="spinner" style="display:inline-block;vertical-align:middle"></span> Loading conferences and children…</div>`; return; }
-  const v=S.view.name;
+  const v=S.view.name; checkFilters();
   const ae=document.activeElement, keepId = ae && app.contains(ae) && ae.id ? ae.id : null;
   const sel = keepId && "selectionStart" in ae ? [ae.selectionStart, ae.selectionEnd] : null;
   const y = window.scrollY;
@@ -533,7 +543,7 @@ const tot = {total:0,complete:0,nosignup:0,held:0,scheduled:0,progress:0,none:0}
   // upcoming + follow-ups
   const today = todayISO();
   const upcoming = Object.values(S.confs).filter(c=>c.confDate && c.confDate>=today && c.status!=="complete").sort(confSort).slice(0,8);
-  const soon = new Date(Date.now()+14*864e5).toISOString().slice(0,10);
+  const soonD=new Date(Date.now()+14*864e5), soon=`${soonD.getFullYear()}-${String(soonD.getMonth()+1).padStart(2,"0")}-${String(soonD.getDate()).padStart(2,"0")}`;
   const follow = Object.values(S.confs).filter(c=>c.followUpDate && !c.followUpDone && c.followUpDate<=soon).sort((a,b)=>a.followUpDate.localeCompare(b.followUpDate)).slice(0,8);
   const li = (c, date, sub) => { const ch=S.children[c.childId]; const d=new Date(date+"T12:00:00");
     return `<li><div class="row" style="gap:10px;flex-wrap:nowrap;min-width:0"><div class="date-tile">${esc(d.toLocaleDateString(undefined,{month:"short"}))}<b>${d.getDate()}</b></div><div style="min-width:0"><a href="#" data-go="conf" data-id="${esc(c.id)}"><b>${esc(childName(ch))}</b></a><div class="small muted">${sub}</div></div></div></li>`; };
@@ -552,11 +562,11 @@ const tot = {total:0,complete:0,nosignup:0,held:0,scheduled:0,progress:0,none:0}
         <select id="f-room" aria-label="Classroom"><option>All</option>${rooms.map(r=>`<option ${f.room===r?"selected":""}>${esc(r)}</option>`).join("")}</select>
         <select id="f-status" aria-label="Status"><option value="All">Every status</option>${[["none","Not started"],["progress","Preparing"],["scheduled","Scheduled"],["held","Date passed"],["nosignup","Did not sign up"],["complete","Complete"]].map(([k,l])=>`<option value="${k}" ${f.status===k?"selected":""}>${l}</option>`).join("")}</select>
         ${eduSelect()}${sortSelect()}
-        <span class="small muted mono">${list.length} of ${tot.total}</span>
-        ${list.length?`<button class="btn" data-act="pdf-list" title="One PDF with a two-page form for each child shown, ready to print">Print forms for these ${list.length} (PDF)</button>`:""}
+        <span id="live-meta"><span class="small muted mono">${list.length} of ${tot.total}</span>
+        ${list.length?`<button class="btn" data-act="pdf-list" title="One PDF with a two-page form for each child shown, ready to print">Print forms for these ${list.length} (PDF)</button>`:""}</span>
       </div>
-      ${kids.length? `<div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th><th>Room</th><th>Primary educator</th><th>Status</th><th>When</th><th>Filled</th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="empty">No children match these filters.</td></tr>`}</tbody></table></div>`
-      : `<div class="panel empty"><p>No children on the roster yet.</p><button class="btn primary" data-act="roster-import">Import the 1Core roster PDF</button> <button class="btn" data-act="child-new">Add a child</button></div>`}
+      <div id="live-list">${kids.length? `<div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th><th>Room</th><th>Primary educator</th><th>Status</th><th>When</th><th>Filled</th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="empty">No children match these filters.</td></tr>`}</tbody></table></div>`
+      : `<div class="panel empty"><p>No children on the roster yet.</p><button class="btn primary" data-act="roster-import">Import the 1Core roster PDF</button> <button class="btn" data-act="child-new">Add a child</button></div>`}</div>
     </div>
     <aside class="stack">
       <div class="panel"><h3>Coming up</h3>
@@ -606,10 +616,10 @@ function viewChildren(){
     <select id="f-room" aria-label="Classroom"><option>All</option>${rooms.map(r=>`<option ${f.room===r?"selected":""}>${esc(r)}</option>`).join("")}</select>
     <div class="seg" role="group" aria-label="Enrollment">${[["active","Enrolled"],["withdrawn","Withdrawn"],["all","All"]].map(([k,l])=>`<button data-act="show" data-v="${k}" aria-pressed="${f.show===k}">${l}</button>`).join("")}</div>
     ${eduSelect()}${sortSelect()}
-    <span class="small muted mono">${list.length} shown</span>
+    <span id="live-meta"><span class="small muted mono">${list.length} shown</span></span>
   </div>
-  ${list.length? `<div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th><th>Birthdate</th><th>Age</th><th>Room</th><th>Small group and educator</th><th>Family</th><th>Conferences</th></tr></thead><tbody>${rows}</tbody></table></div>`
-  : `<div class="panel empty">No children here yet. ${canEdit()?`<button class="btn" data-act="child-new">Add a child</button>`:""}</div>`}`;
+  <div id="live-list">${list.length? `<div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th><th>Birthdate</th><th>Age</th><th>Room</th><th>Small group and educator</th><th>Family</th><th>Conferences</th></tr></thead><tbody>${rows}</tbody></table></div>`
+  : `<div class="panel empty">No children here yet. ${canEdit()?`<button class="btn" data-act="child-new">Add a child</button>`:""}</div>`}</div>`;
 }
 
 function viewChild(id){
@@ -700,8 +710,8 @@ function childPanels(c){
 /* ---------- conference editor ---------- */
 // On the conference form, flag a child who can start TK or Kindergarten the fall after this school year
 function nextYearInfo(c, cf){
-  if(!c) return null;
-  const start=parseInt(cf?.schoolYear,10); const ny=Number.isFinite(start)? start+1 : nextFallYear();
+  if(!c || !cf || cf.term==="Historical") return null;
+  const start=parseInt(cf.schoolYear,10); if(!Number.isFinite(start)) return null; const ny=start+1;
   if(ny<nextFallYear()) return null;
   const el=eligibility(c, ny); if(!el) return null;
   const key=`${ny}-${String(ny+1).slice(2)}`;
@@ -855,7 +865,7 @@ function queueSave(path, val){
 let saveChain=Promise.resolve();
 function flushAll(){
   clearTimeout(saveTimer);
-  if(!pending.size || S.view.name!=="conf") { pending.clear(); return saveChain; }
+  if(!pending.size || S.view.name!=="conf") { pending.clear(); if(!inflight) dirty.clear(); return saveChain; }
   const id=S.view.id; const patch={};
   for(const [p,v] of pending) setPath(patch,p,v);
   const keys=[...pending.keys()]; pending.clear();
@@ -866,7 +876,7 @@ function flushAll(){
     try{ await dbUpdate("conferences/"+id, patch); keys.forEach(k=>{ if(!pending.has(k)) dirty.delete(k); }); if(!pending.size) setSaveState("Saved"); }
     catch(e){
       if(S.view.name==="conf" && S.view.id===id){ keys.forEach(k=>{ if(!pending.has(k)) pending.set(k, getPath(patch,k)); }); setSaveState("Not saved. It will try again when you keep typing."); }
-      else toast("Your last changes to that conference did not save. Open it again and re-enter them.");
+      else { keys.forEach(k=>dirty.delete(k)); toast("Your last changes to that conference did not save. Open it again and re-enter them."); }
     }
     finally{ inflight--; }
   });
@@ -874,6 +884,7 @@ function flushAll(){
 }
 document.addEventListener("visibilitychange", ()=>{ if(document.hidden) flushAll(); });
 window.addEventListener("pagehide", ()=>flushAll());
+window.addEventListener("beforeunload", e=>{ if(pending.size||inflight){ flushAll(); e.preventDefault(); e.returnValue=""; } });
 function setSaveState(t){ const el=$("#save-state"); if(el) el.textContent=t; }
 function grow(t){ t.style.height="auto"; t.style.height=Math.max(t.scrollHeight+2, 84)+"px"; }
 function afterConfRender(){
@@ -904,7 +915,7 @@ async function updateLastEdit(){
 function syncEditor(){
   const cf=S.confs[S.view.id]; if(!cf){ render(); return; }
   $$("#conf-editor [data-k]").forEach(el=>{
-    const k=el.dataset.k; if(document.activeElement===el || dirty.has(k)) return;
+    const k=el.dataset.k; if(dirty.has(k)) return;
     const v=getPath(cf,k);
     if(el.type==="checkbox"){ el.checked=!!v; } else if((el.value||"")!==(v||"")){ el.value=v||""; if(el.tagName==="TEXTAREA") grow(el); }
   });
@@ -962,7 +973,7 @@ function viewPortfolios(){
 function viewNextYear(){
   const f=S.filters, rooms=S.settings.classrooms; const ny=nextFallYear(), key=`${ny}-${String(ny+1).slice(2)}`;
   let list=activeChildren().filter(c=>eligibility(c,ny)); if(f.room!=="All") list=list.filter(c=>c.classroom===f.room); list=eduFilter(list);
-  const order={"1st":0,k:1,tk:2}; list.sort((a,b)=>order[eligibility(a,ny).key]-order[eligibility(b,ny).key]||(a.dob||"").localeCompare(b.dob||""));
+  const order={"1st":0,k:1,tk:2}; sortKids(list); list.sort((a,b)=>order[eligibility(a,ny).key]-order[eligibility(b,ny).key]);
   const dis=canEdit()?"":"disabled";
   const counts={}; list.forEach(c=>{ const p=c.transition?.[key]?.plan||""; counts[p]=(counts[p]||0)+1; });
   const rows=list.map(c=>{ const el=eligibility(c,ny), tr=c.transition?.[key]||{};
@@ -980,7 +991,11 @@ function viewNextYear(){
 }
 /* ---------- filters binding ---------- */
 function bindFilters(){
-  const q=$("#f-q"); if(q) q.oninput=()=>{ S.filters.q=q.value; saveFilters(); render(); };
+  // search updates the list in place, so the box keeps focus and the phone keyboard stays open
+  const q=$("#f-q"); if(q) q.oninput=()=>{ S.filters.q=q.value; saveFilters(); clearTimeout(S.qTimer); S.qTimer=setTimeout(()=>{
+    const tmp=document.createElement("div"); tmp.innerHTML=S.view.name==="overview"? viewOverview() : viewChildren();
+    for(const id of ["live-list","live-meta"]){ const a=$("#"+id), b=tmp.querySelector("#"+id); if(a&&b) a.innerHTML=b.innerHTML; }
+  },150); };
   const r=$("#f-room"); if(r) r.onchange=()=>{ S.filters.room=r.value; saveFilters(); render(); };
   const ed=$("#f-edu"); if(ed) ed.onchange=()=>{ S.filters.edu=ed.value; saveFilters(); render(); };
   const so=$("#f-sort"); if(so) so.onchange=()=>{ S.filters.sort=so.value; saveFilters(); render(); };
@@ -1063,7 +1078,9 @@ async function createConf(childId, year, term){
   const c=S.children[childId]; if(educatorOf(c)) doc.teacher=educatorOf(c);
   try{
     // a co-teacher may have started this same conference a moment ago, so never overwrite it
-    const ex = await S.db.doc("conferences/"+id).get().catch(()=>null);
+    const ref=S.db.doc("conferences/"+id);
+    if(ref.create){ const d=await ref.create(doc); S.confs[id]={id,...(d||doc)}; return id; }
+    const ex = await ref.get().catch(()=>null);
     if(ex?.exists){ S.confs[id]={id,...ex.data()}; return id; }
     await dbSet("conferences/"+id, doc); S.confs[id]={id,...doc}; return id;
   }catch(e){ return null; }
@@ -1081,8 +1098,8 @@ function childForm(c){
       <div class="field"><label for="c-last">Last name</label><input id="c-last" value="${esc(c.last||"")}"></div>
       <div class="field"><label for="c-dob">Birthdate</label><input id="c-dob" type="date" value="${esc(c.dob||"")}"></div>
       <div class="field"><label for="c-gender">Gender</label><input id="c-gender" value="${esc(c.gender||"")}"></div>
-      <div class="field"><label for="c-room">Classroom</label><select id="c-room">${rooms.map(r=>`<option ${c.classroom===r?"selected":""}>${esc(r)}</option>`).join("")}</select></div>
-      <div class="field"><label for="c-group">Small group</label><select id="c-group"><option value="">Choose</option>${groupsList().map(g=>`<option ${c.group===g.name?"selected":""} value="${esc(g.name)}">${esc(g.name)} · ${esc(g.room)} · ${esc(g.educator)}</option>`).join("")}</select></div>
+      <div class="field"><label for="c-room">Classroom</label><select id="c-room">${(c.classroom&&!rooms.includes(c.classroom)?[c.classroom,...rooms]:rooms).map(r=>`<option ${c.classroom===r?"selected":""}>${esc(r)}</option>`).join("")}</select></div>
+      <div class="field"><label for="c-group">Small group</label><select id="c-group"><option value="">Choose</option>${c.group&&!groupsList().some(g=>g.name===c.group)?`<option selected value="${esc(c.group)}">${esc(c.group)}</option>`:""}${groupsList().map(g=>`<option ${c.group===g.name?"selected":""} value="${esc(g.name)}">${esc(g.name)} · ${esc(g.room)} · ${esc(g.educator)}</option>`).join("")}</select></div>
       <div class="field"><label for="c-edu">Primary educator</label><input id="c-edu" value="${esc(c.primaryEducator||"")}" autocomplete="off" placeholder="From the small group"></div>
       <div class="field"><label for="c-program">Program</label><input id="c-program" value="${esc(c.program||"")}"></div>
       <div class="field"><label for="c-schedule">Schedule</label><input id="c-schedule" value="${esc(c.schedule||"")}" placeholder="M,Tu,W,Th,F"></div>
@@ -1118,15 +1135,15 @@ function csvCell(v){ v=String(v??""); return /[",\n]/.test(v)? '"'+v.replace(/"/
 function exportSeasonCSV(){
   const rows=[["Child","Classroom","Primary educator","Status","Family sign-up","Conference date","Time","Format","Educators","Sections filled","Follow-up date"]];
   sortKids(activeChildren()).forEach(c=>{ const cf=periodConf(c.id);
-    rows.push([childName(c),c.classroom,c.primaryEducator,confStatus(cf).label,(SIGNUP.find(s=>s[0]===(cf?.signup||""))||[])[1],cf?.confDate,cf?.confTime,cf?.format,cf?.teacher,cf?filledCount(cf)+"/"+TOTAL_FIELDS:"",cf?.followUpDate]); });
-  saveFile(`conferences-${S.period.term.toLowerCase()}-${S.period.year}.csv`, new Blob([rows.map(r=>r.map(csvCell).join(",")).join("\n")],{type:"text/csv"}));
+    rows.push([childName(c),c.classroom,educatorOf(c),confStatus(cf).label,(SIGNUP.find(s=>s[0]===(cf?.signup||""))||[])[1],cf?.confDate,cf?.confTime,cf?.format,cf?.teacher,cf?filledCount(cf)+"/"+TOTAL_FIELDS:"",cf?.followUpDate]); });
+  saveFile(`conferences-${S.period.term.toLowerCase()}-${S.period.year}.csv`, new Blob(["\ufeff"+rows.map(r=>r.map(csvCell).join(",")).join("\n")],{type:"text/csv;charset=utf-8"}));
 }
 function exportAllCSV(){
   const head=["Child","Classroom","School year","Season","Status","Conference date","Educators","Family present",...FIELDS.map(f=>f.label),"Progress on earlier goals",...REFLECTIONS.map((r,i)=>"Reflection "+(i+1)),"Other sections from the original form"];
   const rows=[head];
   Object.values(S.confs).sort(confSort).forEach(cf=>{ const c=S.children[cf.childId];
     rows.push([childName(c),c?.classroom,cf.schoolYear,cf.term,confStatus(cf).label,cf.confDate,cf.teacher,cf.familyPresent,...FIELDS.map(f=>cf.fields?.[f.k]),cf.prevGoalsProgress,...REFLECTIONS.map(r=>cf.reflections?.[r.k]),cf.otherSections]); });
-  saveFile(`all-conferences-${new Date().toISOString().slice(0,10)}.csv`, new Blob([rows.map(r=>r.map(csvCell).join(",")).join("\n")],{type:"text/csv"}));
+  saveFile(`all-conferences-${new Date().toISOString().slice(0,10)}.csv`, new Blob(["\ufeff"+rows.map(r=>r.map(csvCell).join(",")).join("\n")],{type:"text/csv;charset=utf-8"}));
 }
 
 /* ---------- Word export ---------- */
@@ -1209,12 +1226,13 @@ async function buildFormsPdf(items){
       out.push(line); }
     while(out.length&&out[out.length-1]==="") out.pop(); return out; };
   const lines=(pg,ls,x,y,font,size,color=INK,lh=1.2)=>{ ls.forEach((l,n)=>pg.drawText(l,{x,y:y-size-(n*size*lh),size,font,color})); return ls.length*size*lh; };
-  const fit=(pg,text,x,top,w,h,max=9.5,min=6)=>{ if(!String(text||"").trim()) return; let size=max, ls;
-    for(;size>=min;size-=.5){ ls=wrap(text,F.r,size,w); if(ls.length*size*1.2<=h) break; }
-    if(size<min){ size=min; const cap=Math.max(1,Math.floor(h/(size*1.2))); if(ls.length>cap){ ls=ls.slice(0,cap); ls[cap-1]=ls[cap-1].replace(/.{0,12}$/,"")+" (continued in the app)"; } }
+  const fit=(pg,text,x,top,w,h,max=9.5,min=5.5)=>{ if(!String(text||"").trim()) return; let size=max, ls;
+    for(;size>=min;size=+(size-.5).toFixed(1)){ ls=wrap(text,F.r,size,w); if(ls.length*size*1.2<=h) break; }
+    if(size<min){ size=min; ls=wrap(text,F.r,size,w); const cap=Math.max(1,Math.floor(h/(size*1.2))); if(ls.length>cap){ ls=ls.slice(0,cap); const more=" (more in the app)"; let last=ls[cap-1]; while(last && F.r.widthOfTextAtSize(last+more,size)>w) last=last.slice(0,-1); ls[cap-1]=last.trimEnd()+more; } }
     lines(pg,ls,x,top,F.r,size); };
   const box=(pg,x,top,w,h,fill)=>pg.drawRectangle({x,y:top-h,width:w,height:h,color:fill,borderColor:LINE,borderWidth:.6});
-  const label=(pg,x,top,w,h,lab,hint)=>{ box(pg,x,top,w,h,GREEN); let ls=wrap(lab,F.b,8.5,w-10), sz=8.5; if(!hint && ls.length*10.2>h-6){ sz=7; ls=wrap(lab,F.b,sz,w-10); } let used=lines(pg,ls,x+5,top-(ls.length>1&&!hint?2:4),F.b,sz,INK,1.1); if(hint) lines(pg,wrap(hint,F.i,6.5,w-10),x+5,top-6-used,F.i,6.5,GRAY); };
+  const label=(pg,x,top,w,h,lab,hint)=>{ box(pg,x,top,w,h,GREEN); let ls=wrap(lab,F.b,8.5,w-10), sz=8.5; if(!hint && ls.length*10.2>h-6){ sz=7; ls=wrap(lab,F.b,sz,w-10); } let used=lines(pg,ls,x+5,top-(ls.length>1&&!hint?2:4),F.b,sz,INK,1.1);
+    if(hint){ let hs=6.5, hl=wrap(hint,F.i,hs,w-10); const room=h-used-9; while(hl.length*hs*1.2>room && hs>5.5){ hs-=.5; hl=wrap(hint,F.i,hs,w-10); } hl=hl.slice(0,Math.max(0,Math.floor(room/(hs*1.2)))); lines(pg,hl,x+5,top-6-used,F.i,hs,GRAY); } };
   const value=(pg,x,top,w,h,t)=>{ box(pg,x,top,w,h); fit(pg,t,x+5,top-4,w-10,h-8); };
   const CONF="Confidential. Kept in the child's file and shared only with the family and educators.";
   const footer=pg=>pg.drawText(CONF,{x:M,y:M-14,size:7,font:F.i,color:GRAY});
@@ -1279,11 +1297,13 @@ async function loadPdfjs(){ await loadScript(PDFJS); await loadScript(PDFJS_WORK
 async function readPdf(file, {maxImagePages=4}={}){
   const lib=await loadPdfjs();
   const doc=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
-  let text=""; const pages=[], pageTexts=[];
+  let text=""; const pages=[], pageTexts=[], pageImgs=[];
+  const IMG=new Set([lib.OPS.paintImageXObject, lib.OPS.paintJpegXObject, lib.OPS.paintInlineImageXObject].filter(x=>x!=null));
   for(let p=1;p<=doc.numPages;p++){ const pg=await doc.getPage(p); const vp=pg.getViewport({scale:1}); const tc=await pg.getTextContent();
+    try{ const ops=await pg.getOperatorList(); pageImgs.push(ops.fnArray.some(f=>IMG.has(f))); }catch(e){ pageImgs.push(false); }
     pages.push({width:vp.width,items:tc.items.map(i=>({str:i.str,x:i.transform[4],y:vp.height-i.transform[5]}))});
     const t = tc.items.map(i=>i.str+(i.hasEOL?"\n":" ")).join(""); pageTexts.push(t); text += t+"\n\n"; }
-  return {doc, text, pages, pageTexts};
+  return {doc, text, pages, pageTexts, pageImgs};
 }
 async function pdfToImages(doc, max=4){
   const out=[];
@@ -1435,7 +1455,7 @@ async function runImport(file, opt={}){
     const name=file.name.toLowerCase();
     if(file.type==="application/pdf"||name.endsWith(".pdf")){
       const r=await readPdf(file); const real=r.text.replace(/\s+/g," ").trim();
-      if(real.length>200) text=r.text; else { busy("Turning scanned pages into images…"); images=await pdfToImages(r.doc, limits?.images?.maxCount? Math.min(4,limits.images.maxCount):4); }
+      if(real.length>200 && !r.pageImgs.some(Boolean)) text=r.text; else { busy("Turning scanned pages into images…"); images=await pdfToImages(r.doc, limits?.images?.maxCount? Math.min(4,limits.images.maxCount):4); }
     } else if(name.endsWith(".docx")){ text=await readDocx(file); }
     else if(name.endsWith(".doc")){ throw new Error("Older .doc files cannot be read here. Open it in Word and save it as .docx or PDF, then upload that."); }
     else if(file.type.startsWith("image/")||/\.(heic|heif)$/.test(name)){ images=[await normalizeImage(file, limits)]; ctx.keepBlob = images[0]!==file ? images[0] : null; }
@@ -1466,7 +1486,8 @@ function showReview(){
   const kids=Object.values(S.children).sort((a,b)=>childName(a).localeCompare(childName(b)));
   const yearsOpts=[...new Set([...(S.settings.years||[]), pd.year])].sort();
   const row=(path,label,val)=>{ const cur=target? (getPath(target,path)||"") : "";
-    const def = !String(val||"").trim()? "skip" : cur.trim()? "append" : "replace";
+    const single=["confDate","confTime","reflDate"].includes(path);
+    const def = !String(val||"").trim()? "skip" : cur.trim()? (single? "skip" : "append") : "replace";
     return `<div class="review-row" data-path="${esc(path)}"><div><b class="small">${esc(label)}</b></div>
       <div><textarea aria-label="${esc(label)}">${esc(val||"")}</textarea>${cur.trim()?`<div class="cur">Already in the record · ${esc(cur.slice(0,240))}${cur.length>240?"…":""}</div>`:""}</div>
       <div><select aria-label="What to do with ${esc(label)}"><option value="replace" ${def==="replace"?"selected":""}>Use this</option><option value="append" ${def==="append"?"selected":""}>Add below existing</option><option value="skip" ${def==="skip"?"selected":""}>Skip</option></select></div></div>`; };
@@ -1514,7 +1535,9 @@ async function applyReview(){
       const single=["confDate","reflDate","confTime"].includes(path);
       // when the reviewer could not see what was already saved, never replace it silently
       const effective = (!ctx.confId && cur && mode==="replace" && !single)? "append" : mode;
-      if(effective==="append" && cur && !single){ if(cur.includes(val)) return; out=cur+"\n\n"+val; }
+      if(single && cur && effective!=="replace") return;
+      if(effective==="append" && cur && (path==="teacher"||path==="familyPresent")){ const names=[...new Set([...cur.split(/\s*[,\n]\s*/),...val.split(/\s*[,\n]\s*/)].map(s=>s.trim()).filter(Boolean))]; out=names.join(", "); if(out===cur) return; }
+      else if(effective==="append" && cur){ if(cur.includes(val)) return; out=cur+"\n\n"+val; }
       setPath(patch,path,out);
     });
     if($("#rv-keep")?.checked && S.assets && ctx.file){
@@ -1567,7 +1590,7 @@ async function runBatch(files, preread){
     /* 1. pages */
     if(preread){
       B.pdf=preread.doc;
-      preread.pageTexts.forEach((t,i)=>B.pages.push({n:i+1, text:t, hasText:t.replace(/\s/g,"").length>150}));
+      preread.pageTexts.forEach((t,i)=>B.pages.push({n:i+1, text:t, hasText:t.replace(/\s/g,"").length>150 && !preread.pageImgs[i]}));
     } else {
       for(let i=0;i<files.length;i++){ busy(`Preparing photo ${i+1} of ${files.length}…`); B.pages.push({n:i+1, text:"", hasText:false, blob:await normalizeImage(files[i], limits), name:files[i].name}); }
     }
@@ -1625,8 +1648,8 @@ Reply with only JSON in this shape
       try{
         const ps=F.pages.map(n=>B.pages[n-1]);
         let res;
-        if(!scanned){ res=await S.sample.json(extractionPrompt(ps.map(p=>p.text).join("\n\n")), {signal:ctl.signal, modelTier:"default", ...(F.careful?{careful:true}:{})}); }
-        else { const imgs=[]; for(const p of ps.slice(0,maxImg)) imgs.push(await imgOf(p)); res=await S.sample.json(extractionPrompt(""), {images:imgs, signal:ctl.signal, modelTier:"default", ...(F.careful?{careful:true}:{})}); }
+        if(!scanned){ res=await S.sample.json(extractionPrompt(ps.map(p=>p.text).join("\n\n")), {signal:S.modalCtl.signal, modelTier:"default", ...(F.careful?{careful:true}:{})}); }
+        else { const imgs=[]; for(const p of ps.slice(0,maxImg)) imgs.push(await imgOf(p)); res=await S.sample.json(extractionPrompt(""), {images:imgs, signal:S.modalCtl.signal, modelTier:"default", ...(F.careful?{careful:true}:{})}); }
         if(!res||typeof res!=="object") throw {code:"invalid_json"};
         F.result=res; F.state="read";
         const m=bestChildMatch(res.childName||F.nameHint, res.birthdate, res.parentNames||res.familyMembersPresent); F.childId=m?.id||"";
@@ -1740,7 +1763,7 @@ actions["visit-upload"]=a=>{
     const file=e.target.files[0]; if(!file) return; const st=$("#vn-status"); st.innerHTML=`<div class="progress-note"><span class="spinner"></span>Reading ${esc(file.name)}…</div>`;
     try{
       let text="", images=[]; const limits=await S.sample.limits().catch(()=>null);
-      if(/\.pdf$/i.test(file.name)||file.type==="application/pdf"){ const r=await readPdf(file); if(r.text.replace(/\s+/g,"").length>200) text=r.text; else images=await pdfToImages(r.doc,4); }
+      if(/\.pdf$/i.test(file.name)||file.type==="application/pdf"){ const r=await readPdf(file); if(r.text.replace(/\s+/g,"").length>200 && !r.pageImgs.some(Boolean)) text=r.text; else images=await pdfToImages(r.doc,4); }
       else images=[await normalizeImage(file,limits)];
       const res=await S.sample.json(`This is a completed new-family visit form from a preschool, such as a Garden Visit or home visit form. Write out everything written on it, keeping each question or section title followed by the answer on the next line. Copy the writer's words faithfully. Mark words you cannot read as [illegible]. Leave out printed instructions. Reply with only JSON in this shape {"text":""}${text?"\n\nThe document text follows.\n<<<\n"+text.slice(0,60000)+"\n>>>":""}`, images.length?{images}:{});
       const add=String(res?.text||"").trim(); if(!add) throw new Error("Nothing readable was found on that file.");
@@ -1762,13 +1785,13 @@ actions["copy-emails"]=async()=>{
 actions["mark-noresponse"]=()=>{
   const list=familiesToReach();
   openModal(`<h2>Mark ${list.length} ${list.length===1?"family":"families"} as no response?</h2>
-    <p>Use this at the end of the ${esc(periodLabel(S.period))} season for families who never signed up. Their conferences will show "No response" and stop counting as not started. You can change any of them later from the conference page.</p>
+    <p>Use this at the end of the ${esc(periodLabel(S.period))} season for families who never signed up. Families marked Rescheduling are left as they are. Their conferences will show "No response" and stop counting as not started. You can change any of them later from the conference page.</p>
     <p class="small muted">${esc(list.map(childName).join(", "))}</p>
     <div class="modal-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="mark-noresponse-yes">Mark as no response</button></div>`);
 };
 actions["mark-noresponse-yes"]=async(btn)=>{
   btn.disabled=true; let n=0;
-  for(const c of familiesToReach()){
+  for(const c of familiesToReach().filter(c=>periodConf(c.id)?.signup!=="rescheduling")){
     try{ let cf=periodConf(c.id); let id=cf?.id || await createConf(c.id, S.period.year, S.period.term); if(!id) continue;
       await dbUpdate("conferences/"+id,{signup:"noresponse", updatedAt:nowISO(), ...(S.uid?{updatedBy:S.uid}:{})}); n++; btn.textContent=`Marked ${n}…`; }catch(e){}
   }
@@ -1886,7 +1909,7 @@ async function saveBatch(){
 
 function openAttachOnly(){
   openModal(`<h2>Attach a file</h2><p class="small muted" style="margin:0">Keep a scan, photo, or document with this conference without reading it.</p>
-  <label class="drop" for="att-file"><b>Choose a file</b><div class="small muted">Images, PDF, or text up to 20 MB</div></label><input type="file" id="att-file" hidden>
+  <label class="drop" for="att-file"><b>Choose a file</b><div class="small muted">A photo or PDF up to 15 MB</div></label><input type="file" id="att-file" hidden>
   <div id="att-status"></div><div class="modal-foot"><button class="btn" data-act="close">Done</button></div>`);
   $("#att-file").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; $("#att-status").innerHTML=`<div class="progress-note"><span class="spinner"></span>Uploading…</div>`;
     try{ const up=await S.assets.upload(f); const cf=S.confs[S.view.id]; await dbUpdate("conferences/"+cf.id,{attachments:[...(cf.attachments||[]),{id:up.id,name:f.name,type:up.contentType||f.type,at:nowISO(),...(S.uid?{by:S.uid}:{})}],updatedAt:nowISO()}); closeModal(); toast("File attached"); }
