@@ -473,7 +473,9 @@ const DEFAULT_SETTINGS = {
   classrooms:["West","North","South"],
   years:["2025-26","2026-27","2027-28"],
   educators:{West:[],North:[],South:[]},
+  signupUrl:"https://www.signupgenius.com/go/10C0E44A8A72EA0F9C52-66234452-fulton#/",
 };
+function signupUrl(){ const u=String(S.settings.signupUrl??DEFAULT_SETTINGS.signupUrl).trim(); return /^https:\/\//i.test(u)? u : ""; }
 const TERMS = ["Fall","Spring"];
 const SIGNUP = [["","Not invited yet"],["invited","Invited, waiting to hear"],["signedup","Signed up"],["declined","Family declined"],["noresponse","No response"],["missed","Missed the conference"],["rescheduling","Rescheduling"]];
 const NO_SIGNUP = {declined:"Family declined", noresponse:"No response", missed:"Missed conference"};
@@ -784,7 +786,7 @@ const tot = {total:0,complete:0,nosignup:0,held:0,scheduled:0,progress:0,none:0}
       ${(()=>{ const waiting=kids.filter(c=>["none","progress"].includes(confStatus(periodConf(c.id)).key) && !(periodConf(c.id)?.signup==="signedup"));
         return `<div class="panel"><h3>Families to reach</h3>
         <p class="small muted" style="margin:0 0 10px">${waiting.length} ${waiting.length===1?"family has":"families have"} no conference date yet and ${waiting.length===1?"has":"have"} not signed up.</p>
-        ${waiting.length?`<div class="stack" style="gap:8px"><button class="btn sm" data-act="copy-emails">Copy their parent emails</button>${canEdit()?`<button class="btn sm ghost" data-act="mark-noresponse">Mark them as no response</button>`:""}</div>`:""}
+        ${waiting.length?`<div class="stack" style="gap:8px"><button class="btn sm" data-act="copy-emails">Copy their parent emails</button>${signupUrl()?`<button class="btn sm" data-act="copy-signup">Copy the sign-up link</button><a class="btn sm ghost" href="${esc(signupUrl())}" target="_blank" rel="noopener">Open SignUpGenius</a>`:""}${canEdit()?`<button class="btn sm ghost" data-act="mark-noresponse">Mark them as no response</button>`:""}</div>`:""}
         </div>`; })()}
       ${(()=>{ const nw=kids.filter(isNewChild).sort((a,b)=>(a.enrollDate||"").localeCompare(b.enrollDate||""));
         return nw.length? `<div class="panel"><h3>New children getting started</h3><ul class="list-plain">${nw.slice(0,10).map(c=>`<li><span><a href="#" data-go="child" data-id="${esc(c.id)}"><b>${esc(childName(c))}</b></a><div class="small muted">${esc(c.classroom||"")}${c.enrollDate?" · starts "+esc(fmtDate(c.enrollDate,{month:"short",day:"numeric"})):""}</div></span><span class="mono small">${onboardCount(c)}/${ONBOARD.length}</span></li>`).join("")}</ul></div>` : ""; })()}
@@ -981,7 +983,7 @@ function viewConf(id){
           <div class="field" style="margin-top:12px"><label for="i-teacher">Educators</label><input id="i-teacher" data-k="teacher" value="${esc(cf.teacher||"")}" ${dis} autocomplete="off" placeholder="Everyone who held the conference, separated by commas${educatorOf(c)? ", like "+esc(educatorOf(c)) : ""}"></div>
           ${cf.term==="Additional"? `<div class="field" style="margin-top:12px"><label for="i-reason">Reason for this conference</label><select id="i-reason" data-k="reason" ${dis}>${REASONS.map(o=>`<option value="${o}" ${(cf.reason||"")===o?"selected":""}>${o||"Choose"}</option>`).join("")}</select></div>`:""}
           <div class="grid2" style="margin-top:12px">
-            <div class="field"><label for="i-signup">Family sign-up</label><select id="i-signup" data-k="signup" ${dis}>${SIGNUP.map(([v,l])=>`<option value="${v}" ${(cf.signup||"")===v?"selected":""}>${l}</option>`).join("")}</select></div>
+            <div class="field"><label for="i-signup">Family sign-up${signupUrl()?` <a href="${esc(signupUrl())}" target="_blank" rel="noopener" class="small" style="font-weight:400;margin-left:6px">Open SignUpGenius</a>`:""}</label><select id="i-signup" data-k="signup" ${dis}>${SIGNUP.map(([v,l])=>`<option value="${v}" ${(cf.signup||"")===v?"selected":""}>${l}</option>`).join("")}</select></div>
             <div class="field"><label for="i-signupNote">Sign-up note</label><input id="i-signupNote" data-k="signupNote" value="${esc(cf.signupNote||"")}" ${dis} placeholder="Reminder sent in Kaymbu on 10/20"></div>
           </div>
           <p class="small muted" style="margin:10px 0 0">Developmental areas follow the DRDP domains. Educators review the Family Questionnaire and current DRDP documentation before the conference.</p>
@@ -1152,6 +1154,7 @@ function viewSettings(){
   <div><div class="eyebrow">Setup</div><h1>Settings</h1></div>
   <form id="settings-form" class="panel stack">
     <div class="field"><label for="s-rooms">Classrooms</label><div class="hint">One per line</div><textarea id="s-rooms" rows="3" ${canEdit()?"":"disabled"}>${esc(s.classrooms.join("\n"))}</textarea></div>
+    <div class="field"><label for="s-signup">Family sign-up link</label><div class="hint">The SignUpGenius page families use to choose a conference time. It appears with the families still to reach.</div><input id="s-signup" value="${esc(S.settings.signupUrl??DEFAULT_SETTINGS.signupUrl)}" ${canEdit()?"":"disabled"} placeholder="https://www.signupgenius.com/go/..." style="border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:inherit;width:100%"></div>
     <div class="field"><label for="s-years">School years</label><div class="hint">One per line, written like 2026-27. Each year has a Fall and a Spring season.</div><textarea id="s-years" rows="3" ${canEdit()?"":"disabled"}>${esc(s.years.join("\n"))}</textarea></div>
     <div class="stack" style="gap:10px"><div class="lbl" style="font-weight:600">Educators by classroom</div><div class="hint small muted"><i>Names, separated by commas. These are listed under Settings for reference and for the small groups below.</i></div>
       ${s.classrooms.map(r=>`<div class="field"><label for="s-ed-${esc(r)}">${esc(r)}</label><input id="s-ed-${esc(r)}" data-room="${esc(r)}" value="${esc((s.educators?.[r]||[]).join(", "))}" ${canEdit()?"":"disabled"}></div>`).join("")}
@@ -1275,7 +1278,8 @@ const actions = {
     const educators={}; $$("[data-room]").forEach(i=>{ educators[i.dataset.room]=i.value.split(",").map(s=>s.trim()).filter(Boolean); });
     classrooms.forEach(r=>{ if(!educators[r]) educators[r]=S.settings.educators?.[r]||[]; });
     const groups=lines($("#s-groups").value).map(l=>l.split(",").map(s=>s.trim())).filter(x=>x[0]).map(([name,room,educator])=>({name,room:room||"",educator:educator||""}));
-    try{ await dbSet("settings/main",{classrooms,years,educators,groups,updatedAt:nowISO()}); S.settings={...S.settings,classrooms,years,educators,groups}; toast("Settings saved"); render(); }catch(e){}
+    const su=$("#s-signup").value.trim(); if(su && !/^https:\/\//i.test(su)){ toast("The sign-up link should start with https://"); return; }
+    try{ await dbSet("settings/main",{classrooms,years,educators,groups,signupUrl:su,updatedAt:nowISO()}); S.settings={...S.settings,classrooms,years,educators,groups,signupUrl:su}; toast("Settings saved"); render(); }catch(e){}
   },
   "import-form": a=>openImport(a.dataset.conf||null),
   "attach-only": ()=>openAttachOnly(),
@@ -2024,6 +2028,11 @@ actions["visit-upload"]=a=>{
 
 
 function familiesToReach(){ return activeChildren().filter(c=>["none","progress"].includes(confStatus(periodConf(c.id)).key) && !(periodConf(c.id)?.signup==="signedup")); }
+actions["copy-signup"]=async()=>{
+  const u=signupUrl(); if(!u) return;
+  try{ await navigator.clipboard.writeText(u); toast("Sign-up link copied"); }
+  catch(e){ openModal(`<h2>Sign-up link</h2><textarea style="width:100%;min-height:70px" readonly>${esc(u)}</textarea><div class="modal-foot"><button class="btn" data-act="close">Close</button></div>`); }
+};
 actions["copy-emails"]=async()=>{
   const emails=[...new Set(familiesToReach().flatMap(c=>(c.parents||[]).map(p=>(p.email||"").trim()).filter(Boolean)))];
   const text=emails.join(", ");
