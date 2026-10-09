@@ -210,7 +210,7 @@ const FIELDS = [
   {k:"favoriteAreas", label:"Favorite Areas and Activities", hint:"Indoors, studio, and outdoor spaces"},
   {k:"nature", label:"Connection to Nature and the Farm", hint:"Garden, animals, weather, and the land"},
   {k:"approaches", label:"Approaches to Learning and Self-Regulation", hint:"Curiosity, persistence, attention, and managing feelings and routines"},
-  {k:"social", label:"Social and Emotional Development", hint:"Relationships with teachers, empathy, and handling conflict"},
+  {k:"social", label:"Social and Emotional Development", hint:"Relationships with educators, empathy, and handling conflict"},
   {k:"language", label:"Language and Literacy", hint:"Listening, speaking, early reading and writing, and home language"},
   {k:"cognition", label:"Cognition (math and science)", hint:"Problem solving, counting, patterns, observing, and asking questions"},
   {k:"physical", label:"Physical Development and Health", hint:"Fine and gross motor, self-care, and independence"},
@@ -224,14 +224,14 @@ const REFLECTIONS = [
   {k:"r1", q:"What are you noticing about your child at home right now?"},
   {k:"r2", q:"What are they especially interested in or talking about outside of school?"},
   {k:"r3", q:"Are there any changes, new developments, or challenges you have noticed?"},
-  {k:"r4", q:"Which friends, teachers, or small group projects does your child mention?"},
+  {k:"r4", q:"Which friends, educators, or small group projects does your child mention?"},
   {k:"r5", q:"Looking back at the hopes and goals you shared at enrollment, what feels most important to you now?"},
   {k:"r6", q:"Is there anything you are wondering about or would like us to think about together?"},
 ];
 const PREP = [
   {k:"questionnaire", label:"Reviewed the Family Questionnaire"},
   {k:"drdp", label:"Reviewed current DRDP documentation"},
-  {k:"coteachers", label:"Prepared together with co-teachers"},
+  {k:"coteachers", label:"Prepared together with co-educators"},
   {k:"samples", label:"Gathered work samples and photos to share"},
   {k:"priorGoals", label:"Reviewed goals from the last conference", needsPrior:true},
   {k:"offeredVirtual", label:"Offered an in-person or virtual option"},
@@ -256,7 +256,7 @@ const ONBOARD = [
 ];
 const MONTHS = ["Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun","Jul"];
 const PLANS = [["","Not discussed yet"],["staying","Staying at Fulton"],["tk","Going to TK"],["k","Going to Kindergarten"],["deciding","Family still deciding"],["other","Other"]];
-const REASONS = ["","Behavior or safety concern","Family request","Teacher request","Follow-up on goals","Transition or next school","Other"];
+const REASONS = ["","Behavior or safety concern","Family request","Educator request","Follow-up on goals","Transition or next school","Other"];
 const DEFAULT_SETTINGS = {
   groups: DEFAULT_GROUPS,
   classrooms:["West","North","South"],
@@ -389,6 +389,16 @@ function groupOf(c){ return c?.group ? groupsList().find(g=>g.name===c.group) : 
 function educatorOf(c){ return (c?.primaryEducator||"").trim() || groupOf(c)?.educator || ""; }
 function educatorsFor(room){ const e=S.settings.educators||{}; const g=groupsList().filter(x=>!room||x.room===room).map(x=>x.educator); return [...new Set([...(room? (e[room]||[]) : Object.values(e).flat()), ...g].filter(Boolean))]; }
 function eduFilter(list){ const f=S.filters.edu||"All"; return f==="All"? list : list.filter(c=>educatorOf(c)===f); }
+const SORTS=[["room","Classroom, then last name"],["last","Last name"],["first","First name"],["age","Oldest first"]];
+function sortKids(list){
+  const s=S.filters.sort||"room", by=(k)=>(x,y)=>(!x[k])-(!y[k]) || (x[k]||"").localeCompare(y[k]||"");
+  const rooms=S.settings.classrooms||[], ri=c=>{ const i=rooms.indexOf(c.classroom); return i<0? 99 : i; };
+  const cmp={room:(a,b)=>ri(a)-ri(b)||by("classroom")(a,b)||by("last")(a,b)||by("first")(a,b),
+    last:(a,b)=>by("last")(a,b)||by("first")(a,b), first:(a,b)=>by("first")(a,b)||by("last")(a,b),
+    age:(a,b)=>(a.dob||"9999").localeCompare(b.dob||"9999")||by("last")(a,b)}[s]||((a,b)=>0);
+  return list.sort(cmp);
+}
+function sortSelect(){ const s=S.filters.sort||"room"; return `<select id="f-sort" aria-label="Sort by">${SORTS.map(([k,l])=>`<option value="${k}" ${s===k?"selected":""}>Sort by ${l.toLowerCase()}</option>`).join("")}</select>`; }
 function eduSelect(){ const all=educatorsFor(); const f=S.filters.edu||"All"; return `<select id="f-edu" aria-label="Educator"><option value="All">Every educator</option>${all.map(n=>`<option ${f===n?"selected":""}>${esc(n)}</option>`).join("")}</select>`; }
 function nextFallYear(d=new Date()){ return d.getMonth()>=7? d.getFullYear()+1 : d.getFullYear(); }
 function ageOnSept1(dob, year){ if(!dob) return null; const b=new Date(dob+"T12:00:00"), s=new Date(year,8,1,12); let a=s.getFullYear()-b.getFullYear(); if(s.getMonth()<b.getMonth()||(s.getMonth()===b.getMonth()&&s.getDate()<b.getDate())) a--; return a; }
@@ -507,7 +517,7 @@ const tot = {total:0,complete:0,nosignup:0,held:0,scheduled:0,progress:0,none:0}
   let list = eduFilter(kids.filter(c=> (f.room==="All"||c.classroom===f.room)));
   if(f.q) list = list.filter(c=>childName(c).toLowerCase().includes(f.q.toLowerCase()));
   if(f.status!=="All") list = list.filter(c=>confStatus(periodConf(c.id)).key===f.status);
-  list.sort((a,b)=>(a.classroom||"").localeCompare(b.classroom||"") || (a.last||"").localeCompare(b.last||""));
+  sortKids(list);
   const rows = list.map(c=>{ const cf=periodConf(c.id), st=confStatus(cf);
     return `<tr class="click" tabindex="0" data-act="open-child-conf" data-id="${esc(c.id)}">
       <td class="name-cell"><b>${esc(childName(c))}</b><div class="small muted">${esc(ageAt(c.dob))}</div></td>
@@ -538,7 +548,7 @@ const tot = {total:0,complete:0,nosignup:0,held:0,scheduled:0,progress:0,none:0}
         <input type="search" id="f-q" placeholder="Find a child" value="${esc(f.q)}" aria-label="Find a child">
         <select id="f-room" aria-label="Classroom"><option>All</option>${rooms.map(r=>`<option ${f.room===r?"selected":""}>${esc(r)}</option>`).join("")}</select>
         <select id="f-status" aria-label="Status"><option value="All">Every status</option>${[["none","Not started"],["progress","Preparing"],["scheduled","Scheduled"],["held","Date passed"],["nosignup","Did not sign up"],["complete","Complete"]].map(([k,l])=>`<option value="${k}" ${f.status===k?"selected":""}>${l}</option>`).join("")}</select>
-        ${eduSelect()}
+        ${eduSelect()}${sortSelect()}
         <span class="small muted mono">${list.length} of ${tot.total}</span>
       </div>
       ${kids.length? `<div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th><th>Room</th><th>Primary educator</th><th>Status</th><th>When</th><th>Filled</th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="empty">No children match these filters.</td></tr>`}</tbody></table></div>`
@@ -573,7 +583,7 @@ function viewChildren(){
   if(f.room!=="All") list=list.filter(c=>c.classroom===f.room);
   list=eduFilter(list);
   if(f.q) list=list.filter(c=>(childName(c)+" "+(c.parents||[]).map(p=>p.name).join(" ")).toLowerCase().includes(f.q.toLowerCase()));
-  list.sort((a,b)=>(a.classroom||"").localeCompare(b.classroom||"") || (a.last||"").localeCompare(b.last||""));
+  sortKids(list);
   const rows = list.map(c=>{ const n=confsFor(c.id).length;
     return `<tr class="click" tabindex="0" data-go="child" data-id="${esc(c.id)}">
     <td class="name-cell"><b>${esc(childName(c))}</b>${c.status==="withdrawn"?' <span class="chip st-withdrawn">Withdrawn</span>':""}</td>
@@ -591,7 +601,7 @@ function viewChildren(){
     <input type="search" id="f-q" placeholder="Find a child or parent" value="${esc(f.q)}" aria-label="Find">
     <select id="f-room" aria-label="Classroom"><option>All</option>${rooms.map(r=>`<option ${f.room===r?"selected":""}>${esc(r)}</option>`).join("")}</select>
     <div class="seg" role="group" aria-label="Enrollment">${[["active","Enrolled"],["withdrawn","Withdrawn"],["all","All"]].map(([k,l])=>`<button data-act="show" data-v="${k}" aria-pressed="${f.show===k}">${l}</button>`).join("")}</div>
-    ${eduSelect()}
+    ${eduSelect()}${sortSelect()}
     <span class="small muted mono">${list.length} shown</span>
   </div>
   ${list.length? `<div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th><th>Birthdate</th><th>Age</th><th>Room</th><th>Small group and educator</th><th>Family</th><th>Conferences</th></tr></thead><tbody>${rows}</tbody></table></div>`
@@ -717,17 +727,17 @@ function viewConf(id){
             <div class="field"><label for="i-confDate">Conference date</label><input type="date" id="i-confDate" data-k="confDate" value="${esc(cf.confDate||"")}" ${dis}></div>
             <div class="field"><label for="i-confTime">Time</label><input type="time" id="i-confTime" data-k="confTime" value="${esc(cf.confTime||"")}" ${dis}></div>
             <div class="field"><label for="i-format">Format</label><select id="i-format" data-k="format" ${dis}>${["","In person","Virtual","Phone"].map(o=>`<option ${cf.format===o?"selected":""} value="${o}">${o||"Choose"}</option>`).join("")}</select></div>
-            <div class="field"><label for="i-teacher">Teacher</label><input id="i-teacher" data-k="teacher" list="educator-list" value="${esc(cf.teacher||"")}" ${dis} autocomplete="off"><datalist id="educator-list">${[...new Set([...educ, ...educatorsFor()])].map(n=>`<option value="${esc(n)}">`).join("")}</datalist></div>
+            <div class="field"><label for="i-teacher">Educator</label><input id="i-teacher" data-k="teacher" value="${esc(cf.teacher||"")}" ${dis} autocomplete="off" placeholder="Name"></div>
           </div>
           ${cf.term==="Additional"? `<div class="field" style="margin-top:12px"><label for="i-reason">Reason for this conference</label><select id="i-reason" data-k="reason" ${dis}>${REASONS.map(o=>`<option value="${o}" ${(cf.reason||"")===o?"selected":""}>${o||"Choose"}</option>`).join("")}</select></div>`:""}
           <div class="grid2" style="margin-top:12px">
             <div class="field"><label for="i-signup">Family sign-up</label><select id="i-signup" data-k="signup" ${dis}>${SIGNUP.map(([v,l])=>`<option value="${v}" ${(cf.signup||"")===v?"selected":""}>${l}</option>`).join("")}</select></div>
             <div class="field"><label for="i-signupNote">Sign-up note</label><input id="i-signupNote" data-k="signupNote" value="${esc(cf.signupNote||"")}" ${dis} placeholder="Reminder sent in Kaymbu on 10/20"></div>
           </div>
-          <p class="small muted" style="margin:10px 0 0">Developmental areas follow the DRDP domains. Teachers review the Family Questionnaire and current DRDP documentation before the conference.</p>
+          <p class="small muted" style="margin:10px 0 0">Developmental areas follow the DRDP domains. Educators review the Family Questionnaire and current DRDP documentation before the conference.</p>
         </div>
         <div class="sheet-sec">
-          <div class="sheet-title"><h2>Teacher observations</h2><span class="small muted mono" id="fill-count">${fc}/${TOTAL_FIELDS} sections filled</span></div>
+          <div class="sheet-title"><h2>Educator observations</h2><span class="small muted mono" id="fill-count">${fc}/${TOTAL_FIELDS} sections filled</span></div>
           <div class="grid2">${FIELDS.map(domainBox).join("")}</div>
         </div>
         ${prior? `<div class="sheet-sec">
@@ -889,7 +899,7 @@ function viewSettings(){
   <form id="settings-form" class="panel stack">
     <div class="field"><label for="s-rooms">Classrooms</label><div class="hint">One per line</div><textarea id="s-rooms" rows="3" ${canEdit()?"":"disabled"}>${esc(s.classrooms.join("\n"))}</textarea></div>
     <div class="field"><label for="s-years">School years</label><div class="hint">One per line, written like 2026-27. Each year has a Fall and a Spring season.</div><textarea id="s-years" rows="3" ${canEdit()?"":"disabled"}>${esc(s.years.join("\n"))}</textarea></div>
-    <div class="stack" style="gap:10px"><div class="lbl" style="font-weight:600">Educators by classroom</div><div class="hint small muted"><i>Names, separated by commas. These fill the Teacher and Primary educator suggestions.</i></div>
+    <div class="stack" style="gap:10px"><div class="lbl" style="font-weight:600">Educators by classroom</div><div class="hint small muted"><i>Names, separated by commas. These are listed under Settings for reference and for the small groups below.</i></div>
       ${s.classrooms.map(r=>`<div class="field"><label for="s-ed-${esc(r)}">${esc(r)}</label><input id="s-ed-${esc(r)}" data-room="${esc(r)}" value="${esc((s.educators?.[r]||[]).join(", "))}" ${canEdit()?"":"disabled"}></div>`).join("")}
     </div>
     <div class="field"><label for="s-groups">Small groups</label><div class="hint">One per line, written as group, classroom, educator. The educator becomes the primary educator for every child in that group.</div><textarea id="s-groups" rows="8" ${canEdit()?"":"disabled"}>${esc(groupsList().map(g=>[g.name,g.room,g.educator].join(", ")).join("\n"))}</textarea></div>
@@ -911,7 +921,7 @@ function viewPortfolios(){
   const f=S.filters, rooms=S.settings.classrooms; const yr=S.view.pfYear||S.period.year;
   const yrs=[...new Set([...(S.settings.years||[]), S.period.year])].sort();
   let list=activeChildren(); if(f.room!=="All") list=list.filter(c=>c.classroom===f.room); list=eduFilter(list);
-  list.sort((a,b)=>(a.classroom||"").localeCompare(b.classroom||"")||(a.last||"").localeCompare(b.last||""));
+  sortKids(list);
   const start=+yr.slice(0,4); const now=new Date();
   const monthEnd=i=>{ const m=(7+i)%12, y=start+(i>=5?1:0); return new Date(y,m+1,0,23,59); };
   const late=i=>monthEnd(i)<now;
@@ -920,10 +930,10 @@ function viewPortfolios(){
     return `<tr><td class="name-cell"><a href="#" data-go="child" data-id="${esc(c.id)}"><b>${esc(childName(c))}</b></a><div class="small muted">${esc(educatorOf(c)||c.classroom||"")}</div></td>
     ${MONTHS.map((m,i)=>`<td class="${late(i)&&!pf[m]?"pf-late":""}" style="text-align:center"><input type="checkbox" aria-label="${esc(childName(c))} ${m}" data-pf="${esc(c.id)}|${yr}|${m}" ${pf[m]?"checked":""} ${dis}></td>`).join("")}
     <td class="mono small">${n}${owed?` <span style="color:var(--danger)">${owed} behind</span>`:""}</td></tr>`; }).join("");
-  return `<div class="spread" style="margin-bottom:12px"><div><div class="eyebrow">Advocate teachers</div><h1>Portfolios</h1>
+  return `<div class="spread" style="margin-bottom:12px"><div><div class="eyebrow">Advocate educators</div><h1>Portfolios</h1>
     <p class="muted small" style="margin:.3em 0 0;max-width:62ch">One portfolio page per child each month. Tick a month when that page is done. Past months without a page are shaded.</p></div>
     <div class="filters"><select id="pf-year" aria-label="School year">${yrs.map(y=>`<option ${y===yr?"selected":""}>${esc(y)}</option>`).join("")}</select></div></div>
-  <div class="filters" style="margin-bottom:12px"><select id="f-room" aria-label="Classroom"><option>All</option>${rooms.map(r=>`<option ${f.room===r?"selected":""}>${esc(r)}</option>`).join("")}</select>${eduSelect()}<span class="small muted mono">${list.length} ${list.length===1?"child":"children"}</span></div>
+  <div class="filters" style="margin-bottom:12px"><select id="f-room" aria-label="Classroom"><option>All</option>${rooms.map(r=>`<option ${f.room===r?"selected":""}>${esc(r)}</option>`).join("")}</select>${eduSelect()}${sortSelect()}<span class="small muted mono">${list.length} ${list.length===1?"child":"children"}</span></div>
   <div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th>${MONTHS.map(m=>`<th style="text-align:center">${m}</th>`).join("")}<th>Done</th></tr></thead><tbody>${rows||`<tr><td colspan="14" class="empty">No children match.</td></tr>`}</tbody></table></div>`;
 }
 function viewNextYear(){
@@ -941,7 +951,7 @@ function viewNextYear(){
       <td style="text-align:center"><input type="checkbox" data-ck="${esc(c.id)}|transition.${key}.recordsShared" ${tr.recordsShared?"checked":""} aria-label="Records shared" ${dis}></td></tr>`; }).join("");
   return `<div class="spread" style="margin-bottom:12px"><div><div class="eyebrow">Transitions</div><h1>Fall ${ny}</h1>
     <p class="muted small" style="margin:.3em 0 0;max-width:68ch">Children old enough for TK or Kindergarten next fall, using California's September 1 cutoffs, turning 4 for TK and 5 for Kindergarten. Confirm each family's district rules. Talk about plans at the spring conference and the Kindergarten and TK Info Night.</p></div></div>
-  <div class="filters" style="margin-bottom:12px"><select id="f-room" aria-label="Classroom"><option>All</option>${rooms.map(r=>`<option ${f.room===r?"selected":""}>${esc(r)}</option>`).join("")}</select>${eduSelect()}
+  <div class="filters" style="margin-bottom:12px"><select id="f-room" aria-label="Classroom"><option>All</option>${rooms.map(r=>`<option ${f.room===r?"selected":""}>${esc(r)}</option>`).join("")}</select>${eduSelect()}${sortSelect()}
     <span class="small muted">${list.length} eligible · ${PLANS.filter(([v])=>counts[v]).map(([v,l])=>`${counts[v]} ${l.toLowerCase()}`).join(" · ")}</span></div>
   <div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th><th>Eligible for</th><th>Plan</th><th>Next school</th><th>Info Night</th><th>Records shared</th></tr></thead><tbody>${rows||`<tr><td colspan="6" class="empty">No children are old enough for TK or Kindergarten next fall.</td></tr>`}</tbody></table></div>`;
 }
@@ -950,6 +960,7 @@ function bindFilters(){
   const q=$("#f-q"); if(q) q.oninput=()=>{ S.filters.q=q.value; saveFilters(); render(); };
   const r=$("#f-room"); if(r) r.onchange=()=>{ S.filters.room=r.value; saveFilters(); render(); };
   const ed=$("#f-edu"); if(ed) ed.onchange=()=>{ S.filters.edu=ed.value; saveFilters(); render(); };
+  const so=$("#f-sort"); if(so) so.onchange=()=>{ S.filters.sort=so.value; saveFilters(); render(); };
   const py=$("#pf-year"); if(py) py.onchange=()=>{ S.view.pfYear=py.value; render(); };
   const s=$("#f-status"); if(s) s.onchange=()=>{ S.filters.status=s.value; saveFilters(); render(); };
   const p=$("#period"); if(p) p.onchange=()=>{ const [year,term]=p.value.split("|"); S.period={year,term}; render(); };
@@ -1044,7 +1055,7 @@ function childForm(c){
       <div class="field"><label for="c-gender">Gender</label><input id="c-gender" value="${esc(c.gender||"")}"></div>
       <div class="field"><label for="c-room">Classroom</label><select id="c-room">${rooms.map(r=>`<option ${c.classroom===r?"selected":""}>${esc(r)}</option>`).join("")}</select></div>
       <div class="field"><label for="c-group">Small group</label><select id="c-group"><option value="">Choose</option>${groupsList().map(g=>`<option ${c.group===g.name?"selected":""} value="${esc(g.name)}">${esc(g.name)} · ${esc(g.room)} · ${esc(g.educator)}</option>`).join("")}</select></div>
-      <div class="field"><label for="c-edu">Primary educator</label><input id="c-edu" list="c-edu-list" value="${esc(c.primaryEducator||"")}" autocomplete="off" placeholder="From the small group"><datalist id="c-edu-list">${educatorsFor().map(n=>`<option value="${esc(n)}">`).join("")}</datalist></div>
+      <div class="field"><label for="c-edu">Primary educator</label><input id="c-edu" value="${esc(c.primaryEducator||"")}" autocomplete="off" placeholder="From the small group"></div>
       <div class="field"><label for="c-program">Program</label><input id="c-program" value="${esc(c.program||"")}"></div>
       <div class="field"><label for="c-schedule">Schedule</label><input id="c-schedule" value="${esc(c.schedule||"")}" placeholder="M,Tu,W,Th,F"></div>
       <div class="field"><label for="c-enroll">Enrollment date</label><input id="c-enroll" type="date" value="${esc(c.enrollDate||"")}"></div>
@@ -1077,13 +1088,13 @@ async function saveFile(filename, blob){
 }
 function csvCell(v){ v=String(v??""); return /[",\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; }
 function exportSeasonCSV(){
-  const rows=[["Child","Classroom","Primary educator","Status","Family sign-up","Conference date","Time","Format","Teacher","Sections filled","Follow-up date"]];
-  activeChildren().sort((a,b)=>(a.classroom||"").localeCompare(b.classroom||"")||(a.last||"").localeCompare(b.last||"")).forEach(c=>{ const cf=periodConf(c.id);
+  const rows=[["Child","Classroom","Primary educator","Status","Family sign-up","Conference date","Time","Format","Educator","Sections filled","Follow-up date"]];
+  sortKids(activeChildren()).forEach(c=>{ const cf=periodConf(c.id);
     rows.push([childName(c),c.classroom,c.primaryEducator,confStatus(cf).label,(SIGNUP.find(s=>s[0]===(cf?.signup||""))||[])[1],cf?.confDate,cf?.confTime,cf?.format,cf?.teacher,cf?filledCount(cf)+"/"+TOTAL_FIELDS:"",cf?.followUpDate]); });
   saveFile(`conferences-${S.period.term.toLowerCase()}-${S.period.year}.csv`, new Blob([rows.map(r=>r.map(csvCell).join(",")).join("\n")],{type:"text/csv"}));
 }
 function exportAllCSV(){
-  const head=["Child","Classroom","School year","Season","Status","Conference date","Teacher","Family present",...FIELDS.map(f=>f.label),"Progress on earlier goals",...REFLECTIONS.map((r,i)=>"Reflection "+(i+1)),"Other sections from the original form"];
+  const head=["Child","Classroom","School year","Season","Status","Conference date","Educator","Family present",...FIELDS.map(f=>f.label),"Progress on earlier goals",...REFLECTIONS.map((r,i)=>"Reflection "+(i+1)),"Other sections from the original form"];
   const rows=[head];
   Object.values(S.confs).sort(confSort).forEach(cf=>{ const c=S.children[cf.childId];
     rows.push([childName(c),c?.classroom,cf.schoolYear,cf.term,confStatus(cf).label,cf.confDate,cf.teacher,cf.familyPresent,...FIELDS.map(f=>cf.fields?.[f.k]),cf.prevGoalsProgress,...REFLECTIONS.map(r=>cf.reflections?.[r.k]),cf.otherSections]); });
@@ -1104,32 +1115,40 @@ async function downloadDocx(list, child){
     children:[new D.Paragraph({children:[new D.TextRun({text:label,bold:true,size:20})]}), ...(hint?[new D.Paragraph({children:[new D.TextRun({text:hint,italics:true,size:16,color:"55625A"})]})]:[])]});
   const valCell=(t,span=1,w=30)=>new D.TableCell({borders,columnSpan:span,width:{size:w,type:D.WidthType.PERCENTAGE},margins:{top:80,bottom:80,left:100,right:100},children:paras(t)});
   const sections=[];
+  // Rows get a minimum height so each table fills its letter page the way the paper form does.
+  // Letter paper is 15840 twips tall. With half-inch margins about 14400 remain, and the title,
+  // notes and confidentiality line use roughly 2600 of that on each page.
+  const row=(height, children)=>new D.TableRow({height:{value:Math.round(height), rule:D.HeightRule.ATLEAST}, cantSplit:false, children});
   for(const cf of list){
-    const rows=[];
-    rows.push(new D.TableRow({children:[labelCell("Date"),valCell(fmtDate(cf.confDate)),labelCell("Child"),valCell(childName(child))]}));
-    rows.push(new D.TableRow({children:[labelCell("Birthdate"),valCell(fmtDate(child?.dob)),labelCell("Age"),valCell(ageAt(child?.dob,cf.confDate||undefined))]}));
+    const META=480;
+    const bodyRows=[];
     for(let i=0;i<FIELDS.length;i++){
       const f=FIELDS[i];
-      if(f.full){ rows.push(new D.TableRow({children:[labelCell(f.label,f.hint),valCell(cf.fields?.[f.k],3,80)]})); }
-      else { const g=FIELDS[i+1]; rows.push(new D.TableRow({children:[labelCell(f.label,f.hint),valCell(cf.fields?.[f.k]),labelCell(g.label,g.hint),valCell(cf.fields?.[g.k])]})); i++; }
+      if(f.full) bodyRows.push({w:["strengths","documentation"].includes(f.k)?0.8:1, cells:[labelCell(f.label,f.hint),valCell(cf.fields?.[f.k],3,80)]});
+      else { const g=FIELDS[i+1]; bodyRows.push({w:1, cells:[labelCell(f.label,f.hint),valCell(cf.fields?.[f.k]),labelCell(g.label,g.hint),valCell(cf.fields?.[g.k])]}); i++; }
     }
-    if(cf.prevGoalsProgress) rows.push(new D.TableRow({children:[labelCell("Progress on earlier goals"),valCell(cf.prevGoalsProgress,3,80)]}));
-    if((cf.otherSections||"").trim()) rows.push(new D.TableRow({children:[labelCell("Other sections from the original form"),valCell(cf.otherSections,3,80)]}));
-    const refRows=[new D.TableRow({children:[labelCell("Child"),valCell(childName(child),1,30),labelCell("Family Members Present"),valCell(cf.familyPresent)]}),
-      new D.TableRow({children:[labelCell("Date"),valCell(fmtDate(cf.reflDate||cf.confDate),3,80)]}),
-      ...REFLECTIONS.map((r,i)=>new D.TableRow({children:[new D.TableCell({borders,columnSpan:4,margins:{top:80,bottom:100,left:100,right:100},children:[new D.Paragraph({spacing:{after:60},children:[new D.TextRun({text:`${i+1}. ${r.q}`,bold:true,size:20})]}),...paras(cf.reflections?.[r.k])]})]}))];
-    const title=(t)=>new D.Paragraph({spacing:{after:120},children:[new D.TextRun({text:t,bold:true,size:30,font:"Georgia"})]});
+    if(cf.prevGoalsProgress) bodyRows.push({w:0.8, cells:[labelCell("Progress on earlier goals"),valCell(cf.prevGoalsProgress,3,80)]});
+    if((cf.otherSections||"").trim()) bodyRows.push({w:0.8, cells:[labelCell("Other sections from the original form"),valCell(cf.otherSections,3,80)]});
+    const PAGE1=12200, unit=(PAGE1-2*META)/bodyRows.reduce((s,r)=>s+r.w,0);
+    const rows=[
+      row(META,[labelCell("Date"),valCell(fmtDate(cf.confDate)),labelCell("Child"),valCell(childName(child))]),
+      row(META,[labelCell("Birthdate"),valCell(fmtDate(child?.dob)),labelCell("Age"),valCell(ageAt(child?.dob,cf.confDate||undefined))]),
+      ...bodyRows.map(r=>row(unit*r.w, r.cells))];
+    const PAGE2=12500, qh=(PAGE2-2*META)/REFLECTIONS.length;
+    const refRows=[row(META,[labelCell("Child"),valCell(childName(child),1,30),labelCell("Family Members Present"),valCell(cf.familyPresent)]),
+      row(META,[labelCell("Date"),valCell(fmtDate(cf.reflDate||cf.confDate),3,80)]),
+      ...REFLECTIONS.map((r,i)=>row(qh,[new D.TableCell({borders,columnSpan:4,margins:{top:80,bottom:100,left:100,right:100},children:[new D.Paragraph({spacing:{after:60},children:[new D.TextRun({text:`${i+1}. ${r.q}`,bold:true,size:20})]}),...paras(cf.reflections?.[r.k])]})]))];
+    const title=(t,brk)=>new D.Paragraph({spacing:{after:120},pageBreakBefore:!!brk,children:[new D.TextRun({text:t,bold:true,size:30,font:"Georgia"})]});
     const conf=(t)=>new D.Paragraph({spacing:{before:160},children:[new D.TextRun({text:t,italics:true,size:16})]});
     const CONF="Confidential. Kept in the child's file and shared only with the family and teaching team.";
     sections.push({properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},children:[
       new D.Paragraph({children:[new D.TextRun({text:"Fulton Community School & Farm",size:18,color:"55625A"})]}),
       title(`Family Conference · ${confLabel(cf)}`),
-      new D.Paragraph({spacing:{after:80},children:[new D.TextRun({text:"Conference Date and Time  ",bold:true,size:20}),new D.TextRun({text:[fmtDate(cf.confDate),fmtTime(cf.confTime),cf.format].filter(Boolean).join(", ")||"________________",size:20}),new D.TextRun({text:"     Teacher  ",bold:true,size:20}),new D.TextRun({text:cf.teacher||"________________",size:20})]}),
-      new D.Paragraph({spacing:{after:120},children:[new D.TextRun({text:"Developmental areas follow the DRDP domains. Teachers review the Family Questionnaire and current DRDP documentation before the conference.",italics:true,size:16})]}),
+      new D.Paragraph({spacing:{after:80},children:[new D.TextRun({text:"Conference Date and Time  ",bold:true,size:20}),new D.TextRun({text:[fmtDate(cf.confDate),fmtTime(cf.confTime),cf.format].filter(Boolean).join(", ")||"________________",size:20}),new D.TextRun({text:"     Educator  ",bold:true,size:20}),new D.TextRun({text:cf.teacher||"________________",size:20})]}),
+      new D.Paragraph({spacing:{after:120},children:[new D.TextRun({text:"Developmental areas follow the DRDP domains. Educators review the Family Questionnaire and current DRDP documentation before the conference.",italics:true,size:16})]}),
       new D.Table({width:{size:100,type:D.WidthType.PERCENTAGE},rows}),
       conf(CONF),
-      new D.Paragraph({pageBreakBefore:true,children:[]}),
-      title("Family Reflections"),
+      title("Family Reflections", true),
       new D.Paragraph({spacing:{after:120},children:[new D.TextRun({text:"Completed together with the family during the conference. These questions build on the Family Questionnaire and focus on what has grown and changed since the start of the year.",size:18})]}),
       new D.Table({width:{size:100,type:D.WidthType.PERCENTAGE},rows:refRows}),
       conf(CONF),
@@ -1339,7 +1358,7 @@ function showReview(){
       <div><textarea aria-label="${esc(label)}">${esc(val||"")}</textarea>${cur.trim()?`<div class="cur">Already in the record · ${esc(cur.slice(0,240))}${cur.length>240?"…":""}</div>`:""}</div>
       <div><select aria-label="What to do with ${esc(label)}"><option value="replace" ${def==="replace"?"selected":""}>Use this</option><option value="append" ${def==="append"?"selected":""}>Add below existing</option><option value="skip" ${def==="skip"?"selected":""}>Skip</option></select></div></div>`; };
   const metaRows = [
-    ["confDate","Conference date", toISODate(r.conferenceDate)||pd.date||r.conferenceDate],["confTime","Time",r.conferenceTime],["teacher","Teacher",r.teacher],
+    ["confDate","Conference date", toISODate(r.conferenceDate)||pd.date||r.conferenceDate],["confTime","Time",r.conferenceTime],["teacher","Educator",r.teacher],
     ["familyPresent","Family members present",r.familyMembersPresent],["reflDate","Reflections date",toISODate(r.reflectionsDate)||r.reflectionsDate]];
   impStatus(`
     <div class="notice" style="margin-bottom:10px">${window.CAREFUL_READ && !ctx.careful?`<button class="btn sm" style="float:right;margin-left:10px" data-act="reread-careful">Read again more carefully</button>`:""}<b>Review before saving.</b> ${r.formVersion&&/older/i.test(r.formVersion)?"This is an older version of the form, so sections were matched by meaning. ":""}Readability ${esc(r.readability||"not rated")}. ${esc(r.notes||"")}</div>
@@ -1444,7 +1463,7 @@ async function runBatch(files, preread){
     const imgOf = async (p, width=1700)=>{ if(p.blob) return width<1700? shrinkImage(p.blob,width) : p.blob; return pageImage(B.pdf, p.n, width); };
 
     /* 2. find where each form starts and ends */
-    const sortPrompt=(first,last,count,how)=>`These ${count} ${how} pages ${first} to ${last}, in order, from a stack of completed Family Conference forms at a preschool. Forms come from different school years, so the layout, titles and section names vary. The current version has a first page titled Family Conference, with Conference Date and Time, Teacher, and development areas starting with Main Interests and Friends, and a second page titled Family Reflections with six numbered questions for the family. Older versions may use other titles, other section names, a single page, or questions for the family on the same page.
+    const sortPrompt=(first,last,count,how)=>`These ${count} ${how} pages ${first} to ${last}, in order, from a stack of completed Family Conference forms at a preschool. Forms come from different school years, so the layout, titles and section names vary. The current version has a first page titled Family Conference, with Conference Date and Time, Teacher or Educator, and development areas starting with Main Interests and Friends, and a second page titled Family Reflections with six numbered questions for the family. Older versions may use other titles, other section names, a single page, or questions for the family on the same page.
 For each page decide its kind.
 - conference means the first page of a form for one child, whatever the version.
 - reflections means a page of questions answered with the family that belongs with the form before it.
@@ -1582,7 +1601,7 @@ function updateBatchSaveBtn(){
   const blocked=ok.some(F=>!F.childId);
   btn.disabled=!ok.length||blocked; btn.textContent= ok.length? `Save ${ok.length} ${ok.length===1?"form":"forms"}` : "Save checked forms";
 }
-function batchFieldList(){ return [["confDate","Conference date"],["confTime","Time"],["teacher","Teacher"],["familyPresent","Family members present"],["reflDate","Reflections date"],...FIELDS.map(f=>["fields."+f.k,f.label]),...REFLECTIONS.map((r,i)=>["reflections."+r.k,"Reflection "+(i+1)]),["otherSections","Other sections from the original form"]]; }
+function batchFieldList(){ return [["confDate","Conference date"],["confTime","Time"],["teacher","Educator"],["familyPresent","Family members present"],["reflDate","Reflections date"],...FIELDS.map(f=>["fields."+f.k,f.label]),...REFLECTIONS.map((r,i)=>["reflections."+r.k,"Reflection "+(i+1)]),["otherSections","Other sections from the original form"]]; }
 function batchValue(F,path){
   if(path in F.edits) return F.edits[path];
   const r=F.result||{};

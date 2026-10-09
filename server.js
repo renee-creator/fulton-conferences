@@ -248,7 +248,7 @@ function statusPage(req, res) {
   const lines = [
     [store.ready, store.ready ? `Records are connected. ${store.recs.children.size} children and ${store.recs.conferences.size} conferences are loaded from ${RECORDS_REPO}.` : (store.error || 'Records are still loading.')],
     [!!anthropicKey(), anthropicKey() ? 'An Anthropic key is saved, so reading forms is available.' : 'No Anthropic key is saved. Add ANTHROPIC_API_KEY under Environment to read forms.'],
-    [TEACHERS.length > 0, TEACHERS.length ? `${TEACHERS.length} teacher passcodes are set (${TEACHERS.map(t => esc(t.name)).join(', ')}).` : 'No teacher passcodes are set. Add TEACHER_PASSCODES under Environment, like Hannah=maple garden 42.'],
+    [TEACHERS.length > 0, TEACHERS.length ? `${TEACHERS.length} educator passcodes are set (${TEACHERS.map(t => esc(t.name)).join(', ')}).` : 'No educator passcodes are set. Add TEACHER_PASSCODES under Environment, like Hannah=maple garden 42.'],
   ];
   if (store.saveError) lines.unshift([false, store.saveError]);
   if (SKIPPED_PASSCODES) lines.push([false, `${SKIPPED_PASSCODES} passcode entries were ignored. Each must be a passcode of at least 6 characters, or Name=passcode.`]);
@@ -287,7 +287,7 @@ async function handle(req, res) {
   if (path === '/login') {
     const ip = who(req);
     if (blocked(ip)) { err(req, res, 429, 'Too many wrong passcodes. Wait ten minutes and try again.'); return; }
-    if (!TEACHERS.length) { err(req, res, 503, 'No teacher passcodes are set on the server yet.'); return; }
+    if (!TEACHERS.length) { err(req, res, 503, 'No educator passcodes are set on the server yet.'); return; }
     const t = matchPasscode(body.passcode);
     if (!t) { noteWrong(ip); err(req, res, 403, 'That passcode is not right. Check with Renee if you have forgotten it.'); return; }
     log('Signed in', t.name);
@@ -362,7 +362,7 @@ process.on('SIGTERM', () => stop('SIGTERM')); process.on('SIGINT', () => stop('S
 
 server.listen(PORT, () => {
   log('Conference server on port', PORT, 'records in', RECORDS_REPO);
-  log(TEACHERS.length + ' teacher passcodes set');
+  log(TEACHERS.length + ' educator passcodes set');
   log('GitHub key ' + (githubToken() ? 'saved' : 'MISSING') + ', Anthropic key ' + (anthropicKey() ? 'saved' : 'MISSING'));
   loadAll();
 });
