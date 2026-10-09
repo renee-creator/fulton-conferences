@@ -77,6 +77,7 @@ main{max-width:1180px;margin:0 auto;padding:24px 16px 80px}
 .st-progress{background:var(--prog-soft);color:var(--prog)}
 .st-none{background:var(--todo-soft);color:var(--todo)}
 .st-held{background:var(--danger-soft);color:var(--danger)}
+.st-nosignup{background:var(--surface-2);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
 .st-withdrawn{background:var(--danger-soft);color:var(--danger)}
 
 /* overview */
@@ -397,6 +398,8 @@ const DEFAULT_SETTINGS = {
   educators:{West:[],North:[],South:[]},
 };
 const TERMS = ["Fall","Spring"];
+const SIGNUP = [["","Not invited yet"],["invited","Invited, waiting to hear"],["signedup","Signed up"],["declined","Family declined"],["noresponse","No response"],["missed","Missed the conference"],["rescheduling","Rescheduling"]];
+const NO_SIGNUP = {declined:"Family declined", noresponse:"No response", missed:"Missed conference"};
 
 /* ---------- state ---------- */
 const S = {
@@ -488,13 +491,17 @@ function confSort(a,b){ return confKey(a).localeCompare(confKey(b)); }
 function filledCount(c){ let n=0; FIELDS.forEach(f=>{ if((c.fields?.[f.k]||"").trim()) n++; }); REFLECTIONS.forEach(r=>{ if((c.reflections?.[r.k]||"").trim()) n++; }); return n; }
 const TOTAL_FIELDS = FIELDS.length + REFLECTIONS.length;
 function todayISO(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
-function hasWork(c){ return filledCount(c)>0 || Object.values(c.prep||{}).some(Boolean) || (c.attachments||[]).length>0 || (c.staffNotes||"").trim() || (c.teacher||"").trim(); }
+function hasWork(c){ return !!c.signup || filledCount(c)>0 || Object.values(c.prep||{}).some(Boolean) || (c.attachments||[]).length>0 || (c.staffNotes||"").trim() || (c.teacher||"").trim(); }
 function confStatus(c){
   if(!c) return {key:"none",label:"Not started"};
   if(c.term==="Historical") return {key:"complete",label:"Earlier record"};
   if(c.status==="complete") return {key:"complete",label:"Complete"};
+  if(NO_SIGNUP[c.signup]) return {key:"nosignup",label:NO_SIGNUP[c.signup]};
   if(c.confDate && c.confDate<todayISO()) return {key:"held",label:"Date passed"};
   if(c.confDate) return {key:"scheduled",label:"Scheduled"};
+  if(c.signup==="signedup") return {key:"progress",label:"Signed up"};
+  if(c.signup==="invited") return {key:"progress",label:"Invited"};
+  if(c.signup==="rescheduling") return {key:"progress",label:"Rescheduling"};
   if(!hasWork(c)) return {key:"none",label:"Not started"};
   return {key:"progress",label:"Preparing"};
 }
@@ -609,12 +616,12 @@ function periodPicker(){
 function viewOverview(){
   const kids = activeChildren();
   const rooms = S.settings.classrooms;
-  const counts = r => { const k = kids.filter(c=>c.classroom===r); const by={complete:0,held:0,scheduled:0,progress:0,none:0}; k.forEach(c=>by[confStatus(periodConf(c.id)).key]++); return {total:k.length,...by}; };
-const tot = {total:0,complete:0,held:0,scheduled:0,progress:0,none:0}; rooms.forEach(r=>{ const c=counts(r); for(const k in tot) tot[k]+=c[k]; });
+  const counts = r => { const k = kids.filter(c=>c.classroom===r); const by={complete:0,nosignup:0,held:0,scheduled:0,progress:0,none:0}; k.forEach(c=>by[confStatus(periodConf(c.id)).key]++); return {total:k.length,...by}; };
+const tot = {total:0,complete:0,nosignup:0,held:0,scheduled:0,progress:0,none:0}; rooms.forEach(r=>{ const c=counts(r); for(const k in tot) tot[k]+=c[k]; });
   const roomCard = r => { const c=counts(r); const pct=k=>c.total? (c[k]/c.total*100):0;
     return `<div class="panel room"><h3>${esc(r)} <span class="mono small muted">${c.complete}/${c.total} complete</span></h3>
-      <div class="bar" role="img" aria-label="${c.complete} complete, ${c.held} date passed, ${c.scheduled} scheduled, ${c.progress} preparing, ${c.none} not started"><i style="width:${pct("complete")}%;background:var(--ok)"></i><i style="width:${pct("held")}%;background:var(--danger)"></i><i style="width:${pct("scheduled")}%;background:var(--sched)"></i><i style="width:${pct("progress")}%;background:var(--prog)"></i></div>
-      <div class="legend"><span style="--c:var(--ok)">${c.complete} complete</span>${c.held?`<span style="--c:var(--danger)">${c.held} date passed</span>`:""}<span style="--c:var(--sched)">${c.scheduled} scheduled</span><span style="--c:var(--prog)">${c.progress} preparing</span><span style="--c:var(--todo)">${c.none} not started</span></div></div>`; };
+      <div class="bar" role="img" aria-label="${c.complete} complete, ${c.held} date passed, ${c.scheduled} scheduled, ${c.progress} preparing, ${c.none} not started"><i style="width:${pct("complete")}%;background:var(--ok)"></i><i style="width:${pct("held")}%;background:var(--danger)"></i><i style="width:${pct("nosignup")}%;background:var(--muted);opacity:.55"></i><i style="width:${pct("scheduled")}%;background:var(--sched)"></i><i style="width:${pct("progress")}%;background:var(--prog)"></i></div>
+      <div class="legend"><span style="--c:var(--ok)">${c.complete} complete</span>${c.held?`<span style="--c:var(--danger)">${c.held} date passed</span>`:""}${c.nosignup?`<span style="--c:var(--muted)">${c.nosignup} did not sign up</span>`:""}<span style="--c:var(--sched)">${c.scheduled} scheduled</span><span style="--c:var(--prog)">${c.progress} preparing</span><span style="--c:var(--todo)">${c.none} not started</span></div></div>`; };
   const f=S.filters;
   let list = kids.filter(c=> (f.room==="All"||c.classroom===f.room));
   if(f.q) list = list.filter(c=>childName(c).toLowerCase().includes(f.q.toLowerCase()));
@@ -649,7 +656,7 @@ const tot = {total:0,complete:0,held:0,scheduled:0,progress:0,none:0}; rooms.for
       <div class="filters">
         <input type="search" id="f-q" placeholder="Find a child" value="${esc(f.q)}" aria-label="Find a child">
         <select id="f-room" aria-label="Classroom"><option>All</option>${rooms.map(r=>`<option ${f.room===r?"selected":""}>${esc(r)}</option>`).join("")}</select>
-        <select id="f-status" aria-label="Status"><option value="All">Every status</option>${[["none","Not started"],["progress","Preparing"],["scheduled","Scheduled"],["held","Date passed"],["complete","Complete"]].map(([k,l])=>`<option value="${k}" ${f.status===k?"selected":""}>${l}</option>`).join("")}</select>
+        <select id="f-status" aria-label="Status"><option value="All">Every status</option>${[["none","Not started"],["progress","Preparing"],["scheduled","Scheduled"],["held","Date passed"],["nosignup","Did not sign up"],["complete","Complete"]].map(([k,l])=>`<option value="${k}" ${f.status===k?"selected":""}>${l}</option>`).join("")}</select>
         <span class="small muted mono">${list.length} of ${tot.total}</span>
       </div>
       ${kids.length? `<div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th><th>Room</th><th>Primary educator</th><th>Status</th><th>When</th><th>Filled</th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="empty">No children match these filters.</td></tr>`}</tbody></table></div>`
@@ -660,11 +667,16 @@ const tot = {total:0,complete:0,held:0,scheduled:0,progress:0,none:0}; rooms.for
         ${upcoming.length? `<ul class="list-plain">${upcoming.map(c=>li(c,c.confDate, esc([fmtTime(c.confTime), c.format, c.teacher].filter(Boolean).join(" · "))||"Time not set")).join("")}</ul>` : `<p class="small muted">No conferences scheduled yet. Open a child and set a date to see it here.</p>`}
         ${nonMonday? `<p class="small muted" style="margin-bottom:0">${nonMonday} upcoming ${nonMonday===1?"conference falls":"conferences fall"} on a day other than Monday.</p>`:""}
       </div>
+      ${(()=>{ const waiting=kids.filter(c=>["none","progress"].includes(confStatus(periodConf(c.id)).key) && !(periodConf(c.id)?.signup==="signedup"));
+        return `<div class="panel"><h3>Families to reach</h3>
+        <p class="small muted" style="margin:0 0 10px">${waiting.length} ${waiting.length===1?"family has":"families have"} no conference date yet and ${waiting.length===1?"has":"have"} not signed up.</p>
+        ${waiting.length?`<div class="stack" style="gap:8px"><button class="btn sm" data-act="copy-emails">Copy their parent emails</button>${canEdit()?`<button class="btn sm ghost" data-act="mark-noresponse">Mark them as no response</button>`:""}</div>`:""}
+        </div>`; })()}
       <div class="panel"><h3>Follow-ups due</h3>
         ${follow.length? `<ul class="list-plain">${follow.map(c=>li(c,c.followUpDate, esc(c.followUpNote||"Check in with the family")+(c.followUpDate<today?' · <span style="color:var(--danger)">past due</span>':""))).join("")}</ul>` : `<p class="small muted">Follow-up check-ins set inside a conference appear here two weeks ahead.</p>`}
       </div>
       <div class="panel"><h3>Season totals</h3>
-        <dl class="kv"><dt>Children</dt><dd class="mono">${tot.total}</dd><dt>Complete</dt><dd class="mono">${tot.complete}</dd><dt>Date passed, not marked complete</dt><dd class="mono">${tot.held}</dd><dt>Scheduled</dt><dd class="mono">${tot.scheduled}</dd><dt>Preparing</dt><dd class="mono">${tot.progress}</dd><dt>Not started</dt><dd class="mono">${tot.none}</dd></dl>
+        <dl class="kv"><dt>Children</dt><dd class="mono">${tot.total}</dd><dt>Complete</dt><dd class="mono">${tot.complete}</dd><dt>Did not sign up</dt><dd class="mono">${tot.nosignup}</dd><dt>Date passed, not marked complete</dt><dd class="mono">${tot.held}</dd><dt>Scheduled</dt><dd class="mono">${tot.scheduled}</dd><dt>Preparing</dt><dd class="mono">${tot.progress}</dd><dt>Not started</dt><dd class="mono">${tot.none}</dd></dl>
         <div class="row" style="margin-top:12px"><button class="btn sm" data-act="export-csv">Download season list (CSV)</button></div>
       </div>
     </aside>
@@ -789,6 +801,10 @@ function viewConf(id){
             <div class="field"><label for="i-format">Format</label><select id="i-format" data-k="format" ${dis}>${["","In person","Virtual","Phone"].map(o=>`<option ${cf.format===o?"selected":""} value="${o}">${o||"Choose"}</option>`).join("")}</select></div>
             <div class="field"><label for="i-teacher">Teacher</label><input id="i-teacher" data-k="teacher" list="educator-list" value="${esc(cf.teacher||"")}" ${dis} autocomplete="off"><datalist id="educator-list">${[...new Set([...educ, ...educatorsFor()])].map(n=>`<option value="${esc(n)}">`).join("")}</datalist></div>
           </div>
+          <div class="grid2" style="margin-top:12px">
+            <div class="field"><label for="i-signup">Family sign-up</label><select id="i-signup" data-k="signup" ${dis}>${SIGNUP.map(([v,l])=>`<option value="${v}" ${(cf.signup||"")===v?"selected":""}>${l}</option>`).join("")}</select></div>
+            <div class="field"><label for="i-signupNote">Sign-up note</label><input id="i-signupNote" data-k="signupNote" value="${esc(cf.signupNote||"")}" ${dis} placeholder="Reminder sent in Kaymbu on 10/20"></div>
+          </div>
           <p class="small muted" style="margin:10px 0 0">Developmental areas follow the DRDP domains. Teachers review the Family Questionnaire and current DRDP documentation before the conference.</p>
         </div>
         <div class="sheet-sec">
@@ -840,6 +856,7 @@ function viewConf(id){
         <div class="stack" style="gap:8px">
           <div class="field"><label for="i-followUpDate">Check in again on</label><input type="date" id="i-followUpDate" data-k="followUpDate" value="${esc(cf.followUpDate||"")}" ${dis}></div>
           <div class="field"><label for="i-followUpNote">About</label><input id="i-followUpNote" data-k="followUpNote" value="${esc(cf.followUpNote||"")}" ${dis} placeholder="Phone call about toileting plan"></div>
+          <label class="check"><input type="checkbox" data-k="copyGiven" ${cf.copyGiven?"checked":""} ${dis}><span>Copy of the conference form given to the family</span></label>
           <label class="check"><input type="checkbox" data-k="followUpDone" ${cf.followUpDone?"checked":""} ${dis}><span>Follow-up done</span></label>
         </div>
       </div>`}
@@ -1089,9 +1106,9 @@ async function saveFile(filename, blob){
 }
 function csvCell(v){ v=String(v??""); return /[",\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; }
 function exportSeasonCSV(){
-  const rows=[["Child","Classroom","Primary educator","Status","Conference date","Time","Format","Teacher","Sections filled","Follow-up date"]];
+  const rows=[["Child","Classroom","Primary educator","Status","Family sign-up","Conference date","Time","Format","Teacher","Sections filled","Follow-up date"]];
   activeChildren().sort((a,b)=>(a.classroom||"").localeCompare(b.classroom||"")||(a.last||"").localeCompare(b.last||"")).forEach(c=>{ const cf=periodConf(c.id);
-    rows.push([childName(c),c.classroom,c.primaryEducator,confStatus(cf).label,cf?.confDate,cf?.confTime,cf?.format,cf?.teacher,cf?filledCount(cf)+"/"+TOTAL_FIELDS:"",cf?.followUpDate]); });
+    rows.push([childName(c),c.classroom,c.primaryEducator,confStatus(cf).label,(SIGNUP.find(s=>s[0]===(cf?.signup||""))||[])[1],cf?.confDate,cf?.confTime,cf?.format,cf?.teacher,cf?filledCount(cf)+"/"+TOTAL_FIELDS:"",cf?.followUpDate]); });
   saveFile(`conferences-${S.period.term.toLowerCase()}-${S.period.year}.csv`, new Blob([rows.map(r=>r.map(csvCell).join(",")).join("\n")],{type:"text/csv"}));
 }
 function exportAllCSV(){
@@ -1610,6 +1627,28 @@ function toggleBatchDetail(i, forceOpen){
     ${batchFieldList().map(([path,label])=>{ const v=batchValue(F,path); return `<div class="review-row" style="grid-template-columns:180px minmax(0,1fr)"><div><b class="small">${esc(label)}</b></div><div><textarea data-path="${esc(path)}" aria-label="${esc(label)}">${esc(v)}</textarea></div></div>`; }).join("")}</div>`;
 }
 actions["batch-check"]=a=>toggleBatchDetail(+a.dataset.i);
+function familiesToReach(){ return activeChildren().filter(c=>["none","progress"].includes(confStatus(periodConf(c.id)).key) && !(periodConf(c.id)?.signup==="signedup")); }
+actions["copy-emails"]=async()=>{
+  const emails=[...new Set(familiesToReach().flatMap(c=>(c.parents||[]).map(p=>(p.email||"").trim()).filter(Boolean)))];
+  const text=emails.join(", ");
+  try{ await navigator.clipboard.writeText(text); toast(`${emails.length} emails copied`); }
+  catch(e){ openModal(`<h2>Parent emails</h2><p class="small muted" style="margin:0">Select all and copy.</p><textarea style="width:100%;min-height:160px" readonly>${esc(text)}</textarea><div class="modal-foot"><button class="btn" data-act="close">Close</button></div>`); }
+};
+actions["mark-noresponse"]=()=>{
+  const list=familiesToReach();
+  openModal(`<h2>Mark ${list.length} ${list.length===1?"family":"families"} as no response?</h2>
+    <p>Use this at the end of the ${esc(periodLabel(S.period))} season for families who never signed up. Their conferences will show "No response" and stop counting as not started. You can change any of them later from the conference page.</p>
+    <p class="small muted">${esc(list.map(childName).join(", "))}</p>
+    <div class="modal-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="mark-noresponse-yes">Mark as no response</button></div>`);
+};
+actions["mark-noresponse-yes"]=async(btn)=>{
+  btn.disabled=true; let n=0;
+  for(const c of familiesToReach()){
+    try{ let cf=periodConf(c.id); let id=cf?.id || await createConf(c.id, S.period.year, S.period.term); if(!id) continue;
+      await dbUpdate("conferences/"+id,{signup:"noresponse", updatedAt:nowISO(), ...(S.uid?{updatedBy:S.uid}:{})}); n++; btn.textContent=`Marked ${n}…`; }catch(e){}
+  }
+  closeModal(); toast(`${n} marked as no response`); render();
+};
 actions["reread-careful"]=()=>{ const ctx=S.importCtx; if(!ctx?.file) return; ctx.careful=true; runImport(ctx.file,{careful:true}); };
 actions["batch-careful"]=async a=>{ const ctx=S.importCtx, F=ctx.batch.forms[+a.dataset.i]; F.careful=true; F.edits={}; const ctl=new AbortController(); S.modalCtl=ctl; try{ await ctx.readOne(F); }catch(e){} showBatchReview(); };
 actions["open-saved"]=a=>{ closeModal(); go("conf",{id:a.dataset.id}); };
