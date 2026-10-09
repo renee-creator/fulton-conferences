@@ -596,7 +596,7 @@ const tot = {total:0,complete:0,nosignup:0,held:0,scheduled:0,progress:0,none:0}
     <aside class="stack">
       <div class="panel"><h3>Coming up</h3>
         ${upcoming.length? `<ul class="list-plain">${upcoming.map(c=>li(c,c.confDate, esc([fmtTime(c.confTime), c.format, c.teacher].filter(Boolean).join(" · "))||"Time not set")).join("")}</ul>` : `<p class="small muted">No conferences scheduled yet. Open a child and set a date to see it here.</p>`}
-        ${nonMonday? `<p class="small muted" style="margin-bottom:0">${nonMonday} upcoming ${nonMonday===1?"conference falls":"conferences fall"} on a day other than Monday.</p>`:""}
+        ${nonMonday? `<p class="small muted" style="margin-bottom:0">${nonMonday} upcoming ${nonMonday===1?"conference falls":"conferences fall"} on a day other than Monday. Monday mornings work best.</p>`:""}
       </div>
       ${(()=>{ const waiting=kids.filter(c=>["none","progress"].includes(confStatus(periodConf(c.id)).key) && !(periodConf(c.id)?.signup==="signedup"));
         return `<div class="panel"><h3>Families to reach</h3>
@@ -734,6 +734,15 @@ function childPanels(c){
 
 /* ---------- conference editor ---------- */
 // On the conference form, flag a child who can start TK or Kindergarten the fall after this school year
+// Monday mornings work best for conferences
+function timeNote(cf){
+  const d=cf.confDate? new Date(cf.confDate+"T12:00:00") : null, t=cf.confTime||"";
+  const notMon=d && !isNaN(d) && d.getDay()!==1, notMorning=t && t>="12:00";
+  if(notMon && notMorning) return "Monday mornings work best. This one is on a "+d.toLocaleDateString(undefined,{weekday:"long"})+" afternoon.";
+  if(notMon) return "Monday mornings work best. This one is on a "+d.toLocaleDateString(undefined,{weekday:"long"})+".";
+  if(notMorning) return "Monday mornings work best. This one is in the afternoon.";
+  return "Monday mornings work best.";
+}
 function nextYearInfo(c, cf){
   if(!c || !cf || cf.term==="Historical") return null;
   const start=parseInt(cf.schoolYear,10); if(!Number.isFinite(start)) return null; const ny=start+1;
@@ -785,6 +794,7 @@ function viewConf(id){
             <div class="field"><label for="i-confTime">Time</label><input type="time" id="i-confTime" data-k="confTime" value="${esc(cf.confTime||"")}" ${dis}></div>
             <div class="field"><label for="i-format">Format</label><select id="i-format" data-k="format" ${dis}>${["","In person","Virtual","Phone"].map(o=>`<option ${cf.format===o?"selected":""} value="${o}">${o||"Choose"}</option>`).join("")}</select></div>
           </div>
+          <p class="small muted" id="time-note" style="margin:6px 0 0">${timeNote(cf)}</p>
           <div class="field" style="margin-top:12px"><label for="i-teacher">Educators</label><input id="i-teacher" data-k="teacher" value="${esc(cf.teacher||"")}" ${dis} autocomplete="off" placeholder="Everyone who held the conference, separated by commas${educatorOf(c)? ", like "+esc(educatorOf(c)) : ""}"></div>
           ${cf.term==="Additional"? `<div class="field" style="margin-top:12px"><label for="i-reason">Reason for this conference</label><select id="i-reason" data-k="reason" ${dis}>${REASONS.map(o=>`<option value="${o}" ${(cf.reason||"")===o?"selected":""}>${o||"Choose"}</option>`).join("")}</select></div>`:""}
           <div class="grid2" style="margin-top:12px">
@@ -857,7 +867,7 @@ function viewConf(id){
         <details><summary>Conference guidelines</summary>
           <ul class="guide" style="margin-top:10px">
             <li>Conferences are 20-minute check-ins, offered twice a year to every family.</li>
-            <li>Schedule slots on Mondays. Afternoons work best.</li>
+            <li>Schedule slots on Monday mornings.</li>
             <li>Offer in-person or virtual so working families can attend.</li>
             <li>Open with a positive observation and keep the tone collaborative.</li>
             <li>Listen actively. Use clear language and specific examples.</li>
@@ -923,7 +933,8 @@ function afterConfRender(){
     queueSave(t.dataset.k, v);
     if(t.dataset.k.startsWith("fields.")||t.dataset.k.startsWith("reflections.")) updateMeter();
   });
-  ed.addEventListener("change", e=>{ const t=e.target; if(t.dataset.k && (t.type==="date"||t.tagName==="SELECT"||t.type==="checkbox"||t.type==="time")) flushAll(); });
+  ed.addEventListener("change", e=>{ const t=e.target; if(t.dataset.k && (t.type==="date"||t.tagName==="SELECT"||t.type==="checkbox"||t.type==="time")) flushAll();
+    if(t.dataset.k==="confDate"||t.dataset.k==="confTime"){ const n=$("#time-note"); if(n) n.textContent=timeNote({confDate:$("#i-confDate")?.value, confTime:$("#i-confTime")?.value}); } });
   ed.addEventListener("focusout", e=>{ if(e.target.dataset?.k) flushAll(); });
   updateLastEdit();
 }
