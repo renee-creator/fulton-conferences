@@ -101,6 +101,7 @@ function gh(method, path, body) {
   });
 }
 const store = { ready: false, error: '', branch: 'main', recs: { children: new Map(), conferences: new Map(), settings: new Map() }, originals: new Map(), loadedAt: 0, saveError: '' };
+const KEY_NO_WRITE = 'GitHub will not let the access key save changes. On GitHub, edit the Conference records token and set Contents to Read and write.';
 const KEY_PROBLEM = 'GitHub rejected the access key, so changes cannot be saved. The GitHub token on Render has probably expired. Renew it on GitHub and paste the new one into GITHUB_TOKEN on Render.';
 let rev = 0; const changeLog = []; const BOOT_ID = crypto.randomBytes(6).toString('hex');
 function noteChange(kind, id) { rev++; changeLog.push({ rev, kind, id }); if (changeLog.length > 5000) changeLog.splice(0, 1000); }
@@ -173,7 +174,8 @@ async function writeFile(kind, id) {
       if (r.status === 200 || r.status === 201) { rec.sha = r.json.content.sha; store.saveError = ''; return; }
     }
     if (r.status === 409 || r.status === 422) { const s = await currentSha(path); if (rec) rec.sha = s || undefined; continue; }   // changed on GitHub directly, keep the app's copy
-    if (r.status === 401 || r.status === 403) { store.saveError = KEY_PROBLEM; log('GitHub rejected the token'); }
+    if (r.status === 401) { store.saveError = KEY_PROBLEM; log('GitHub rejected the token'); }
+    if (r.status === 403) { store.saveError = KEY_NO_WRITE; log('GitHub key cannot write'); }
     throw new Error('GitHub answered ' + r.status + ' ' + (r.json && r.json.message || ''));
   }
   throw new Error('GitHub kept refusing the save');
@@ -325,7 +327,7 @@ async function handle(req, res) {
     if (buf.length > 20 * 1024 * 1024) { err(req, res, 413, 'That file is larger than 20 MB.'); return; }
     const id = crypto.randomBytes(6).toString('hex') + '-' + name.replace(/^[^a-z0-9]+/, '');
     const r = await gh('PUT', `/repos/${RECORDS_REPO}/contents/originals/${id}`, { message: `Add original form by ${me.name}`, content: buf.toString('base64'), branch: store.branch });
-    if (r.status === 401 || r.status === 403) { store.saveError = KEY_PROBLEM; err(req, res, 503, KEY_PROBLEM); return; }
+    if (r.status === 401 || r.status === 403) { store.saveError = r.status === 401 ? KEY_PROBLEM : KEY_NO_WRITE; err(req, res, 503, store.saveError); return; }
     if (r.status !== 201 && r.status !== 200) { err(req, res, 502, 'GitHub would not store the file. ' + ((r.json && r.json.message) || r.status)); return; }
     store.originals.set(id, { path: `originals/${id}`, sha: r.json.content.sha, size: buf.length });
     json(req, res, 200, { id, sizeBytes: buf.length }); return;
