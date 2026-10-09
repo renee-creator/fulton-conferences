@@ -258,6 +258,7 @@ const ONBOARD = [
 ];
 const MONTHS = ["Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun","Jul"];
 const PLANS = [["","Not discussed yet"],["staying","Staying at Fulton"],["tk","Going to TK"],["k","Going to Kindergarten"],["deciding","Family still deciding"],["other","Other"]];
+const PLAN_BOXES = [["staying","Staying at Fulton"],["tk","TK"],["k","Kindergarten"],["deciding","Still deciding"],["other","Other"]];
 const REASONS = ["","Behavior or safety concern","Family request","Educator request","Follow-up on goals","Transition or next school","Other"];
 const DEFAULT_SETTINGS = {
   groups: DEFAULT_GROUPS,
@@ -519,7 +520,7 @@ const tot = {total:0,complete:0,nosignup:0,held:0,scheduled:0,progress:0,none:0}
   let list = eduFilter(kids.filter(c=> (f.room==="All"||c.classroom===f.room)));
   if(f.q) list = list.filter(c=>childName(c).toLowerCase().includes(f.q.toLowerCase()));
   if(f.status!=="All") list = list.filter(c=>confStatus(periodConf(c.id)).key===f.status);
-  sortKids(list);
+  sortKids(list); S.lastList=list.map(c=>c.id);
   const rows = list.map(c=>{ const cf=periodConf(c.id), st=confStatus(cf);
     return `<tr class="click" tabindex="0" data-act="open-child-conf" data-id="${esc(c.id)}">
       <td class="name-cell"><b>${esc(childName(c))}</b><div class="small muted">${esc(ageAt(c.dob))}</div></td>
@@ -552,6 +553,7 @@ const tot = {total:0,complete:0,nosignup:0,held:0,scheduled:0,progress:0,none:0}
         <select id="f-status" aria-label="Status"><option value="All">Every status</option>${[["none","Not started"],["progress","Preparing"],["scheduled","Scheduled"],["held","Date passed"],["nosignup","Did not sign up"],["complete","Complete"]].map(([k,l])=>`<option value="${k}" ${f.status===k?"selected":""}>${l}</option>`).join("")}</select>
         ${eduSelect()}${sortSelect()}
         <span class="small muted mono">${list.length} of ${tot.total}</span>
+        ${list.length?`<button class="btn" data-act="pdf-list" title="One PDF with a two-page form for each child shown, ready to print">Print forms for these ${list.length} (PDF)</button>`:""}
       </div>
       ${kids.length? `<div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th><th>Room</th><th>Primary educator</th><th>Status</th><th>When</th><th>Filled</th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="empty">No children match these filters.</td></tr>`}</tbody></table></div>`
       : `<div class="panel empty"><p>No children on the roster yet.</p><button class="btn primary" data-act="roster-import">Import the 1Core roster PDF</button> <button class="btn" data-act="child-new">Add a child</button></div>`}
@@ -636,6 +638,7 @@ function viewChild(id){
     <div class="row">${canEdit()?`<button class="btn" data-act="child-edit" data-id="${esc(id)}">Edit details</button>
       <button class="btn" data-act="conf-new-additional" data-id="${esc(id)}">Add an extra conference</button>
       <button class="btn primary" data-act="open-child-conf" data-id="${esc(id)}">${p?"Open":"Start"} ${esc(periodLabel(S.period))} conference</button>`:""}
+      <button class="btn" data-act="pdf-child" data-id="${esc(id)}">Print ${esc(periodLabel(S.period))} form (PDF)</button>
       ${list.length?`<button class="btn" data-act="docx-child" data-id="${esc(id)}">Download full record (Word)</button>`:""}</div>
   </div>
   <div class="split">
@@ -696,11 +699,18 @@ function childPanels(c){
 
 /* ---------- conference editor ---------- */
 // On the conference form, flag a child who can start TK or Kindergarten the fall after this school year
+function nextYearInfo(c, cf){
+  if(!c) return null;
+  const start=parseInt(cf?.schoolYear,10); const ny=Number.isFinite(start)? start+1 : nextFallYear();
+  if(ny<nextFallYear()) return null;
+  const el=eligibility(c, ny); if(!el) return null;
+  const key=`${ny}-${String(ny+1).slice(2)}`;
+  return {ny, el, key, age:ageOnSept1(c.dob,ny), plan:c.transition?.[key]?.plan||"",
+    text:`Eligible for ${el.label} in Fall ${ny}.`, more:`${c.first||"This child"} will be ${ageOnSept1(c.dob,ny)} on September 1, so talk with the family about next year at this conference.`};
+}
 function nextYearFlag(c, cf, dis){
-  const start=parseInt(cf.schoolYear,10); const ny=Number.isFinite(start)? start+1 : nextFallYear();
-  if(ny<nextFallYear()) return "";
-  const el=eligibility(c, ny); if(!el) return "";
-  const key=`${ny}-${String(ny+1).slice(2)}`, tr=c.transition?.[key]||{};
+  const info=nextYearInfo(c, cf); if(!info) return "";
+  const {ny, el, key}=info, tr=c.transition?.[key]||{};
   return `<div class="flag-next" role="note"><div><b>Eligible for ${esc(el.label)} in Fall ${ny}.</b> ${esc(c.first||"This child")} will be ${ageOnSept1(c.dob,ny)} on September 1, so talk with the family about next year at this conference.</div>
     <div class="field" style="margin:0;min-width:220px"><label for="flag-plan">Family's plan</label><select id="flag-plan" data-ck="${esc(c.id)}|transition.${key}.plan" ${dis}>${PLANS.map(([v,l])=>`<option value="${v}" ${(tr.plan||"")===v?"selected":""}>${l}</option>`).join("")}</select></div></div>`;
 }
@@ -775,7 +785,7 @@ function viewConf(id){
           ${ta("staffNotes","Notes for the teaching team","","full")}
         </div>
       </div>
-      <p class="small muted" style="margin:0"><i>Confidential. Kept in the child's file and shared only with the family and teaching team.</i></p>
+      <p class="small muted" style="margin:0"><i>Confidential. Kept in the child's file and shared only with the family and educators.</i></p>
     </div>
     <aside class="rail">
       <div class="panel">
@@ -784,6 +794,7 @@ function viewConf(id){
         <div class="stack" style="gap:8px;margin-top:12px">
           ${ro?"":`${cf.term==="Historical"?"":`<button class="btn primary" data-act="toggle-complete">${cf.status==="complete"?"Reopen conference":"Mark conference complete"}</button>`}
           <button class="btn" data-act="import-form" data-conf="${esc(id)}">Fill from a completed form</button>`}
+          <button class="btn" data-act="pdf-conf">Download PDF to print</button>
           <button class="btn" data-act="docx-conf">Download Word copy</button>
         </div>
         <p class="small muted" id="last-edit" style="margin:10px 0 0"></p>
@@ -1034,6 +1045,11 @@ const actions = {
   "import-form": a=>openImport(a.dataset.conf||null),
   "attach-only": ()=>openAttachOnly(),
   "roster-import": ()=>openRosterImport(),
+  "pdf-conf": async ()=>{ await flushAll(); const cf=S.confs[S.view.id], c=S.children[cf.childId]; await downloadPdf([{cf, child:c}], `${slug(childName(c))}-conference-${cf.term.toLowerCase()}-${cf.schoolYear}.pdf`); },
+  "pdf-child": async a=>{ await flushAll(); const c=S.children[a.dataset.id]; const cf=formFor(c); await downloadPdf([{cf, child:c}], `${slug(childName(c))}-conference-${cf.term.toLowerCase()}-${cf.schoolYear}.pdf`); },
+  "pdf-list": async ()=>{ await flushAll(); const kids=(S.lastList||[]).map(id=>S.children[id]).filter(Boolean); const f=S.filters;
+    const name=["conference-forms", S.period.term.toLowerCase(), S.period.year, f.room!=="All"&&f.room, f.edu&&f.edu!=="All"&&f.edu].filter(Boolean).map(s=>slug(String(s))).join("-");
+    await downloadPdf(kids.map(c=>({cf:formFor(c), child:c})), name+".pdf"); },
   "docx-conf": async ()=>{ await flushAll(); const cf=S.confs[S.view.id]; await downloadDocx([cf], S.children[cf.childId]); },
   "docx-child": async a=>{ const list=confsFor(a.dataset.id); await downloadDocx(list, S.children[a.dataset.id]); },
   "export-csv": ()=>exportSeasonCSV(),
@@ -1122,7 +1138,7 @@ async function downloadDocx(list, child){
   const GREEN="E4ECE6";
   const border={style:D.BorderStyle.SINGLE,size:4,color:"9AA79E"};
   const borders={top:border,bottom:border,left:border,right:border};
-  const paras=(t,opts={})=>{ const lines=String(t||"").split(/\n/); return lines.map(l=>new D.Paragraph({spacing:{after:40},children:[new D.TextRun({text:l,size:20,...opts})]})); };
+  const paras=(t,opts={})=>{ const lines=String(t||"").split(/\n/); return lines.map(l=>new D.Paragraph({spacing:{after:20},children:[new D.TextRun({text:l,size:18,...opts})]})); };
   const labelCell=(label,hint,span=1)=>new D.TableCell({borders,columnSpan:span,shading:{type:D.ShadingType.CLEAR,color:"auto",fill:GREEN},width:{size:20,type:D.WidthType.PERCENTAGE},margins:{top:80,bottom:80,left:100,right:100},
     children:[new D.Paragraph({children:[new D.TextRun({text:label,bold:true,size:20})]}), ...(hint?[new D.Paragraph({children:[new D.TextRun({text:hint,italics:true,size:16,color:"55625A"})]})]:[])]});
   const valCell=(t,span=1,w=30)=>new D.TableCell({borders,columnSpan:span,width:{size:w,type:D.WidthType.PERCENTAGE},margins:{top:80,bottom:80,left:100,right:100},children:paras(t)});
@@ -1141,22 +1157,26 @@ async function downloadDocx(list, child){
     }
     if(cf.prevGoalsProgress) bodyRows.push({w:0.8, cells:[labelCell("Progress on earlier goals"),valCell(cf.prevGoalsProgress,3,80)]});
     if((cf.otherSections||"").trim()) bodyRows.push({w:0.8, cells:[labelCell("Other sections from the original form"),valCell(cf.otherSections,3,80)]});
-    const PAGE1=12200, unit=(PAGE1-2*META)/bodyRows.reduce((s,r)=>s+r.w,0);
+    const info=nextYearInfo(child, cf);
+    const PAGE1=info? 9900 : 10700, unit=(PAGE1-2*META)/bodyRows.reduce((s,r)=>s+r.w,0);
     const rows=[
       row(META,[labelCell("Date"),valCell(fmtDate(cf.confDate)),labelCell("Child"),valCell(childName(child))]),
       row(META,[labelCell("Birthdate"),valCell(fmtDate(child?.dob)),labelCell("Age"),valCell(ageAt(child?.dob,cf.confDate||undefined))]),
       ...bodyRows.map(r=>row(unit*r.w, r.cells))];
-    const PAGE2=12500, qh=(PAGE2-2*META)/REFLECTIONS.length;
+    const PAGE2=11300, qh=(PAGE2-2*META)/REFLECTIONS.length;
     const refRows=[row(META,[labelCell("Child"),valCell(childName(child),1,30),labelCell("Family Members Present"),valCell(cf.familyPresent)]),
       row(META,[labelCell("Date"),valCell(fmtDate(cf.reflDate||cf.confDate),3,80)]),
       ...REFLECTIONS.map((r,i)=>row(qh,[new D.TableCell({borders,columnSpan:4,margins:{top:80,bottom:100,left:100,right:100},children:[new D.Paragraph({spacing:{after:60},children:[new D.TextRun({text:`${i+1}. ${r.q}`,bold:true,size:20})]}),...paras(cf.reflections?.[r.k])]})]))];
     const title=(t,brk)=>new D.Paragraph({spacing:{after:120},pageBreakBefore:!!brk,children:[new D.TextRun({text:t,bold:true,size:30,font:"Georgia"})]});
     const conf=(t)=>new D.Paragraph({spacing:{before:160},children:[new D.TextRun({text:t,italics:true,size:16})]});
-    const CONF="Confidential. Kept in the child's file and shared only with the family and teaching team.";
+    const CONF="Confidential. Kept in the child's file and shared only with the family and educators.";
     sections.push({properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},children:[
       new D.Paragraph({children:[new D.TextRun({text:"Fulton Community School & Farm",size:18,color:"55625A"})]}),
       title(`Family Conference · ${confLabel(cf)}`),
       new D.Paragraph({spacing:{after:80},children:[new D.TextRun({text:"Conference Date and Time  ",bold:true,size:20}),new D.TextRun({text:[fmtDate(cf.confDate),fmtTime(cf.confTime),cf.format].filter(Boolean).join(", ")||"________________",size:20}),new D.TextRun({text:"     Educators  ",bold:true,size:20}),new D.TextRun({text:cf.teacher||"________________",size:20})]}),
+      ...(info? [new D.Table({width:{size:100,type:D.WidthType.PERCENTAGE},rows:[new D.TableRow({children:[new D.TableCell({borders:{top:{style:D.BorderStyle.SINGLE,size:6,color:"C9962A"},bottom:{style:D.BorderStyle.SINGLE,size:6,color:"C9962A"},left:{style:D.BorderStyle.SINGLE,size:24,color:"C9962A"},right:{style:D.BorderStyle.SINGLE,size:6,color:"C9962A"}},shading:{type:D.ShadingType.CLEAR,color:"auto",fill:"FDF3D8"},margins:{top:80,bottom:80,left:140,right:120},children:[
+          new D.Paragraph({children:[new D.TextRun({text:info.text+" ",bold:true,size:19}),new D.TextRun({text:info.more,size:19})]}),
+          new D.Paragraph({spacing:{before:60},children:[new D.TextRun({text:"Family's plan   ",bold:true,size:18}),...PLAN_BOXES.map(([v,l])=>new D.TextRun({text:`${info.plan===v?"\u2612":"\u2610"} ${l}     `,size:18}))]})]})]})]}), new D.Paragraph({spacing:{after:60},children:[]})] : []),
       new D.Paragraph({spacing:{after:120},children:[new D.TextRun({text:"Developmental areas follow the DRDP domains. Educators review the Family Questionnaire and current DRDP documentation before the conference.",italics:true,size:16})]}),
       new D.Table({width:{size:100,type:D.WidthType.PERCENTAGE},rows}),
       conf(CONF),
@@ -1171,6 +1191,86 @@ async function downloadDocx(list, child){
   const base=slug(childName(child));
   await saveFile(list.length===1? `${base}-conference-${list[0].term.toLowerCase()}-${list[0].schoolYear}.docx` : `${base}-conference-record.docx`, blob);
 }
+
+/* ---------- printable PDF, always two letter pages per conference ---------- */
+async function buildFormsPdf(items){
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js");
+  const {PDFDocument, StandardFonts, rgb}=window.PDFLib;
+  const doc=await PDFDocument.create();
+  doc.setTitle("Family Conference"); doc.setAuthor("Fulton Community School & Farm");
+  const F={r:await doc.embedFont(StandardFonts.Helvetica), b:await doc.embedFont(StandardFonts.HelveticaBold), i:await doc.embedFont(StandardFonts.HelveticaOblique), t:await doc.embedFont(StandardFonts.TimesRomanBold)};
+  const charset=new Set(F.r.getCharacterSet());
+  const clean=s=>String(s??"").replace(/\r/g,"").replace(/\t/g," ").replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,"-").split("").map(ch=>ch==="\n"||charset.has(ch.codePointAt(0))?ch:"?").join("");
+  const INK=rgb(.13,.16,.14), GRAY=rgb(.36,.4,.37), LINE=rgb(.6,.65,.62), GREEN=rgb(.894,.925,.902), GOLD=rgb(.79,.59,.16), CREAM=rgb(.992,.953,.847);
+  const W=612,H=792,M=36,TW=W-2*M;
+  const wrap=(text,font,size,width)=>{ const out=[]; for(const para of clean(text).split("\n")){ if(!para.trim()){ out.push(""); continue; } let line="";
+      for(let word of para.split(/\s+/).filter(Boolean)){ while(font.widthOfTextAtSize(word,size)>width){ let k=word.length-1; while(k>1&&font.widthOfTextAtSize(word.slice(0,k),size)>width) k--; if(line){ out.push(line); line=""; } out.push(word.slice(0,k)); word=word.slice(k); }
+        const t=line? line+" "+word : word; if(font.widthOfTextAtSize(t,size)<=width) line=t; else { out.push(line); line=word; } }
+      out.push(line); }
+    while(out.length&&out[out.length-1]==="") out.pop(); return out; };
+  const lines=(pg,ls,x,y,font,size,color=INK,lh=1.2)=>{ ls.forEach((l,n)=>pg.drawText(l,{x,y:y-size-(n*size*lh),size,font,color})); return ls.length*size*lh; };
+  const fit=(pg,text,x,top,w,h,max=9.5,min=6)=>{ if(!String(text||"").trim()) return; let size=max, ls;
+    for(;size>=min;size-=.5){ ls=wrap(text,F.r,size,w); if(ls.length*size*1.2<=h) break; }
+    if(size<min){ size=min; const cap=Math.max(1,Math.floor(h/(size*1.2))); if(ls.length>cap){ ls=ls.slice(0,cap); ls[cap-1]=ls[cap-1].replace(/.{0,12}$/,"")+" (continued in the app)"; } }
+    lines(pg,ls,x,top,F.r,size); };
+  const box=(pg,x,top,w,h,fill)=>pg.drawRectangle({x,y:top-h,width:w,height:h,color:fill,borderColor:LINE,borderWidth:.6});
+  const label=(pg,x,top,w,h,lab,hint)=>{ box(pg,x,top,w,h,GREEN); let ls=wrap(lab,F.b,8.5,w-10), sz=8.5; if(!hint && ls.length*10.2>h-6){ sz=7; ls=wrap(lab,F.b,sz,w-10); } let used=lines(pg,ls,x+5,top-(ls.length>1&&!hint?2:4),F.b,sz,INK,1.1); if(hint) lines(pg,wrap(hint,F.i,6.5,w-10),x+5,top-6-used,F.i,6.5,GRAY); };
+  const value=(pg,x,top,w,h,t)=>{ box(pg,x,top,w,h); fit(pg,t,x+5,top-4,w-10,h-8); };
+  const CONF="Confidential. Kept in the child's file and shared only with the family and educators.";
+  const footer=pg=>pg.drawText(CONF,{x:M,y:M-14,size:7,font:F.i,color:GRAY});
+  const LW=TW*.2, VW=TW*.3;
+  for(const {cf, child:c} of items){
+    const info=nextYearInfo(c, cf);
+    // page one
+    let pg=doc.addPage([W,H]); let y=H-M;
+    pg.drawText("Fulton Community School & Farm",{x:M,y:y-8,size:8,font:F.r,color:GRAY}); y-=12;
+    pg.drawText(clean("Family Conference \u00B7 "+confLabel(cf)),{x:M,y:y-17,size:17,font:F.t,color:INK}); y-=25;
+    const when=[fmtDate(cf.confDate),fmtTime(cf.confTime),cf.format].filter(Boolean).join(", ");
+    pg.drawText("Conference Date and Time",{x:M,y:y-9,size:9,font:F.b}); pg.drawText(clean(when),{x:M+122,y:y-9,size:9,font:F.r}); if(!when) pg.drawLine({start:{x:M+122,y:y-10},end:{x:M+262,y:y-10},thickness:.5,color:LINE});
+    pg.drawText("Educators",{x:M+280,y:y-9,size:9,font:F.b}); const ed=wrap(cf.teacher||"",F.r,9,TW-330)[0]||""; pg.drawText(ed,{x:M+330,y:y-9,size:9,font:F.r}); if(!ed) pg.drawLine({start:{x:M+330,y:y-10},end:{x:W-M,y:y-10},thickness:.5,color:LINE});
+    y-=18;
+    if(info){ const fh=38; pg.drawRectangle({x:M,y:y-fh,width:TW,height:fh,color:CREAM,borderColor:GOLD,borderWidth:.8}); pg.drawRectangle({x:M,y:y-fh,width:4,height:fh,color:GOLD});
+      const tw=F.b.widthOfTextAtSize(clean(info.text),9)+5; pg.drawText(clean(info.text),{x:M+10,y:y-13,size:9,font:F.b});
+      pg.drawText(wrap(info.more,F.r,8.5,TW-20-tw)[0]||"",{x:M+10+tw,y:y-13,size:8.5,font:F.r});
+      let x=M+10; pg.drawText("Family's plan",{x,y:y-29,size:8.5,font:F.b}); x+=66;
+      for(const [v,l] of PLAN_BOXES){ pg.drawRectangle({x,y:y-30,width:8,height:8,borderColor:INK,borderWidth:.7}); if(info.plan===v){ pg.drawLine({start:{x:x+1.5,y:y-26},end:{x:x+3.5,y:y-28.5},thickness:1.2,color:INK}); pg.drawLine({start:{x:x+3.5,y:y-28.5},end:{x:x+7,y:y-23},thickness:1.2,color:INK}); }
+        pg.drawText(l,{x:x+11,y:y-29,size:8.5,font:F.r}); x+=11+F.r.widthOfTextAtSize(l,8.5)+16; }
+      y-=fh+6; }
+    lines(pg,wrap("Developmental areas follow the DRDP domains. Educators review the Family Questionnaire and current DRDP documentation before the conference.",F.i,7.5,TW),M,y,F.i,7.5,GRAY); y-=13;
+    const body=[]; for(let i=0;i<FIELDS.length;i++){ const f=FIELDS[i]; if(f.full) body.push({w:["strengths","documentation"].includes(f.k)?.8:1,full:f}); else { body.push({w:1,a:f,b:FIELDS[i+1]}); i++; } }
+    if(cf.prevGoalsProgress) body.push({w:.8,full:{label:"Progress on earlier goals",k:"__prev"}});
+    if((cf.otherSections||"").trim()) body.push({w:.8,full:{label:"Other sections from the original form",k:"__other"}});
+    const META=22, avail=y-M-2*META, unit=avail/body.reduce((s,r)=>s+r.w,0);
+    const valOf=k=>k==="__prev"?cf.prevGoalsProgress:k==="__other"?cf.otherSections:cf.fields?.[k];
+    const pair=(top,h,l1,v1,l2,v2,hint1,hint2)=>{ label(pg,M,top,LW,h,l1,hint1); value(pg,M+LW,top,VW,h,v1); label(pg,M+LW+VW,top,LW,h,l2,hint2); value(pg,M+2*LW+VW,top,VW,h,v2); };
+    pair(y,META,"Date",fmtDate(cf.confDate),"Child",childName(c)); y-=META;
+    pair(y,META,"Birthdate",fmtDate(c?.dob),"Age",ageAt(c?.dob,cf.confDate||undefined)); y-=META;
+    for(const r of body){ const h=unit*r.w;
+      if(r.full){ label(pg,M,y,LW,h,r.full.label,r.full.hint); value(pg,M+LW,y,TW-LW,h,valOf(r.full.k)); }
+      else pair(y,h,r.a.label,cf.fields?.[r.a.k],r.b.label,cf.fields?.[r.b.k],r.a.hint,r.b.hint);
+      y-=h; }
+    footer(pg);
+    // page two
+    pg=doc.addPage([W,H]); y=H-M;
+    pg.drawText("Fulton Community School & Farm",{x:M,y:y-8,size:8,font:F.r,color:GRAY}); y-=12;
+    pg.drawText("Family Reflections",{x:M,y:y-17,size:17,font:F.t,color:INK}); y-=25;
+    y-=lines(pg,wrap("Completed together with the family during the conference. These questions build on the Family Questionnaire and focus on what has grown and changed since the start of the year.",F.r,8.5,TW),M,y,F.r,8.5,GRAY)+6;
+    pair(y,META,"Child",childName(c),"Family Members Present",cf.familyPresent); y-=META;
+    label(pg,M,y,LW,META,"Date"); value(pg,M+LW,y,TW-LW,META,fmtDate(cf.reflDate||cf.confDate)); y-=META;
+    const qh=(y-M)/REFLECTIONS.length;
+    REFLECTIONS.forEach((r,n)=>{ box(pg,M,y,TW,qh); const used=lines(pg,wrap(`${n+1}. ${r.q}`,F.b,9,TW-12),M+6,y-5,F.b,9); fit(pg,cf.reflections?.[r.k],M+6,y-9-used,TW-12,qh-14-used); y-=qh; });
+    footer(pg);
+  }
+  return new Blob([await doc.save()],{type:"application/pdf"});
+}
+async function downloadPdf(items, filename){
+  if(!items.length){ toast("No children to include"); return; }
+  toast(items.length>1? `Preparing ${items.length} forms…` : "Preparing the PDF…");
+  try{ await saveFile(filename, await buildFormsPdf(items)); }
+  catch(e){ console.error(e); toast("The PDF could not be made. Check your connection and try again."); }
+}
+// the form for this season, or a blank one with the child's details filled in, ready to print
+function formFor(c, p=S.period){ return periodConf(c.id, p) || {term:p.term, schoolYear:p.year, fields:{}, reflections:{}, teacher:educatorOf(c)}; }
 
 /* ---------- reading uploaded files ---------- */
 const PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
