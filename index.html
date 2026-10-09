@@ -2033,13 +2033,29 @@ actions["visit-upload"]=a=>{
 
 function familiesToReach(){ return activeChildren().filter(c=>["none","progress"].includes(confStatus(periodConf(c.id)).key) && !(periodConf(c.id)?.signup==="signedup")); }
 /* ---------- SignUpGenius ---------- */
+// One SignUpGenius time slot can hold a family from each classroom, written as
+// "West Conferences", then "Parent Name (1)", then the family's comment. Split them apart.
+function sugSplit(ev){
+  const rooms=S.settings.classrooms||[]; const lines=String(ev.description||"").split(/\n/).map(s=>s.trim());
+  const out=[]; let room="", cur=null;
+  for(const line of lines){
+    const head=line.match(/^(.+?)\s+conferences?\s*$/i);
+    if(head && rooms.some(r=>r.toLowerCase()===head[1].trim().toLowerCase())){ room=rooms.find(r=>r.toLowerCase()===head[1].trim().toLowerCase()); cur=null; continue; }
+    const who=line.match(/^(.+?)\s*\(\d+\)\s*$/);
+    if(who && room){ cur={...ev, room, signer:who[1].trim(), comment:""}; out.push(cur); continue; }
+    if(cur && line){ cur.comment=(cur.comment? cur.comment+" " : "")+line; }
+  }
+  if(!out.length) return [{...ev, room:"", signer:"", comment:ev.description||""}];
+  return out.map(e=>({...e, description:[e.signer,e.comment].filter(Boolean).join(" · ")}));
+}
 function sugMatch(ev){
   const words=s=>String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").split(/[^a-z0-9]+/).filter(w=>w.length>1);
   const tw=words([ev.summary,ev.description,ev.location].join(" "));
   if(!tw.length) return null;
   const close=(a,b)=>{ if(a===b) return true; if(Math.min(a.length,b.length)<5 || Math.abs(a.length-b.length)>1) return false; return lev(a,b)<=1; };
   const has=w=>tw.some(t=>close(t,w));
-  const kids=activeChildren(); let best=null, score=0, tie=false;
+  let kids=activeChildren(); if(ev.room){ const inRoom=kids.filter(c=>c.classroom===ev.room); if(inRoom.length) kids=inRoom; }
+  let best=null, score=0, tie=false;
   const count=(k)=>{ const m={}; kids.forEach(c=>words(c[k]).forEach(w=>m[w]=(m[w]||0)+1)); return m; };
   const firsts=count("first"), lasts=count("last");
   for(const c of kids){
@@ -2061,14 +2077,14 @@ actions["sug-check"]=async()=>{
   openModal(`<h2>SignUpGenius</h2><p class="muted"><span class="spinner" style="display:inline-block;vertical-align:middle"></span> Reading the sign-up calendar…</p>`);
   let j; try{ j=await window.FC_SIGNUP_FEED(true, S.settings.signupFeed ?? DEFAULT_SETTINGS.signupFeed); }catch(e){ openModal(`<h2>SignUpGenius</h2><p>${esc(e.message||"The sign-up calendar could not be read.")}</p><div class="modal-foot"><button class="btn" data-act="close">Close</button></div>`); return; }
   const today=new Date(); today.setDate(today.getDate()-60); const since=today.toISOString().slice(0,10);
-  const evs=(j.events||[]).filter(e=>e.date>=since);
+  const evs=(j.events||[]).filter(e=>e.date>=since).flatMap(sugSplit);
   S.sug=evs.map(e=>({...e, childId:sugMatch(e)?.id||""}));
-  const left=S.sug.map((e,i)=>({i,text:[e.summary,e.description].join(" | ").trim()})).filter(x=>!S.sug[x.i].childId && x.text.replace(/[^a-z]/gi,"").length>8);
+  const left=S.sug.map((e,i)=>({i,classroom:e.room||"",text:e.room? e.description : [e.summary,e.description].join(" | ").trim()})).filter(x=>!S.sug[x.i].childId && x.text.replace(/[^a-z]/gi,"").length>8);
   if(left.length && S.sample){
     openModal(`<h2>SignUpGenius</h2><p class="muted"><span class="spinner" style="display:inline-block;vertical-align:middle"></span> Matching ${left.length} more ${left.length===1?"slot":"slots"} to children…</p>`);
     try{
       const roster=activeChildren().map(c=>({id:c.id, child:childName(c), classroom:c.classroom||"", parents:(c.parents||[]).map(p=>p.name).filter(Boolean)}));
-      const r=await S.sample.json(`These are conference sign-up slots from SignUpGenius for a preschool. Families wrote their own names and their child's name in their own way, so spellings, nicknames, word order and which parent signed up vary. Match each slot to one child from the roster. Use the empty string when a slot has no family in it or you are not reasonably sure. Reply with only JSON in this shape {"matches":[{"i":0,"id":""}]}
+      const r=await S.sample.json(`These are conference sign-up slots from SignUpGenius for a preschool. Each slot gives the classroom, the name of the person who signed up, and their comment, which often names the child. Families wrote names in their own way, so spellings, nicknames, word order and which parent signed up vary. Match each slot to one child from the roster. Use the empty string when a slot has no family in it or you are not reasonably sure. Reply with only JSON in this shape {"matches":[{"i":0,"id":""}]}
 
 Slots
 ${JSON.stringify(left)}
@@ -2084,7 +2100,7 @@ ${JSON.stringify(roster)}`, {modelTier:"quick"});
   const rows=S.sug.map((e,i)=>{ const c=S.children[e.childId]; const cf=c? periodConf(c.id, currentPeriod(new Date(e.date+"T12:00:00"))) : null;
     const same=cf && cf.confDate===e.date && (cf.confTime||"")===(e.time||"");
     return `<tr><td class="mono small" style="white-space:nowrap">${esc(fmtDate(e.date))}<div class="muted">${esc(fmtT(e.time))}${e.end?" to "+esc(fmtT(e.end)):""}</div></td>
-      <td class="small">${esc((e.summary+(e.description?" · "+e.description:"")).slice(0,160))}</td>
+      <td class="small">${e.room? `<b>${esc(e.room)}</b> · ${esc(e.description.slice(0,160))}` : esc((e.summary+(e.description?" · "+e.description:"")).slice(0,160))}</td>
       <td><select data-sug="${i}" aria-label="Child for this slot"><option value="">Not matched</option>${kids.map(k=>`<option value="${esc(k.id)}" ${k.id===e.childId?"selected":""}>${esc(childName(k))}</option>`).join("")}</select>${same?`<div class="small muted">Already filled in</div>`:""}${e.byClaude?`<div class="small muted">Matched by Claude, check it</div>`:""}${e.childId&&S.sug.filter(x=>x.childId===e.childId).length>1?`<div class="small" style="color:var(--danger)">Matched to more than one slot. Pick the right one.</div>`:""}</td></tr>`; }).join("");
   openModal(`<h2>Conference times from SignUpGenius</h2>
     <p class="small muted" style="margin:0 0 10px">${S.sug.length} ${S.sug.length===1?"slot":"slots"} found, ${S.sug.filter(e=>e.childId).length} matched to a child. Each one is matched to a child by the names in the slot. Check the matches, pick a child for any that are blank, then fill them in. Open slots with no family stay blank and are skipped.</p>

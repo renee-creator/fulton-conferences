@@ -491,6 +491,6 @@ server.listen(PORT, () => {
   log('Conference server on port', PORT, 'records in', RECORDS_REPO);
   log(TEACHERS.length + ' educator passcodes set');
   log('GitHub key ' + (githubToken() ? 'saved' : 'MISSING') + ', Anthropic key ' + (anthropicKey() ? 'saved' : 'MISSING'));
-  loadAll().then(() => { const s = store.recs.settings.get('main'); logFeedShape(String((s && s.doc && s.doc.signupFeed) || 'webcal://www.signupgenius.com/index.cfm?go=t.calendar&record=52b9d3e8d48a36eeafcf25b67ee0ea5a')); });
+  loadAll();
 });
 module.exports = { deepMerge, checkSession, makeSession };
