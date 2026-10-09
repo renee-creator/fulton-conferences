@@ -300,6 +300,17 @@ function icsTime(prop) {
   if (m[7]) return laParts(new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5])));
   return { date: `${m[1]}-${m[2]}-${m[3]}`, time: `${m[4]}:${m[5]}` };   // already local time
 }
+// a picture of the feed's layout for the server log, with every name and address hidden
+const KEEP = new Set('signed up by comment comments child childs name names s family conference conferences for and parent parents guardian mom dad slot slots note notes item items quantity phone email of the with at in on to classroom west north south fall spring room time date sign signup signups am pm mon tue wed thu fri monday tuesday wednesday thursday friday x no yes'.split(' '));
+function maskText(s) { return String(s).replace(/[A-Za-z][A-Za-z']*/g, w => KEEP.has(w.toLowerCase()) ? w : w[0] + '*').replace(/\d/g, '9').replace(/\S+@\S+/g, '[email]'); }
+async function logFeedShape(link) {
+  try {
+    const r = await getText(link.replace(/^webcal:\/\//i, 'https://'));
+    const raw = (r.text.match(/BEGIN:VEVENT/g) || []).length; const evs = parseIcs(r.text);
+    log('Feed check', r.status, 'raw events', raw, 'read', evs.length);
+    evs.slice(0, 40).forEach((e, i) => log('Feed event', i, e.date, e.time, e.end, '| S', maskText(e.summary).slice(0, 120), '| D', maskText(e.description).replace(/\n/g, ' / ').slice(0, 300)));
+  } catch (e) { log('Feed check failed', e.message); }
+}
 function parseIcs(text) {
   const lines = String(text).replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/);
   const unesc = s => s.replace(/\\n/gi, '\n').replace(/\\([,;\\])/g, '$1');
@@ -480,6 +491,6 @@ server.listen(PORT, () => {
   log('Conference server on port', PORT, 'records in', RECORDS_REPO);
   log(TEACHERS.length + ' educator passcodes set');
   log('GitHub key ' + (githubToken() ? 'saved' : 'MISSING') + ', Anthropic key ' + (anthropicKey() ? 'saved' : 'MISSING'));
-  loadAll();
+  loadAll().then(() => { const s = store.recs.settings.get('main'); logFeedShape(String((s && s.doc && s.doc.signupFeed) || 'webcal://www.signupgenius.com/index.cfm?go=t.calendar&record=52b9d3e8d48a36eeafcf25b67ee0ea5a')); });
 });
 module.exports = { deepMerge, checkSession, makeSession };
