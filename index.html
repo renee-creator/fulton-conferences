@@ -274,7 +274,12 @@ details summary{cursor:pointer;font-weight:600}
   function saveBanner(msg, warn){ let b=document.getElementById("save-banner"); if(!msg){ if(b) b.remove(); return; } if(!b){ b=document.createElement("div"); b.id="save-banner"; b.setAttribute("role","alert"); b.style.cssText=(warn?"background:#8a5a00;":"background:var(--danger);")+"color:#fff;padding:10px 16px;font-weight:600;text-align:center"; document.body.prepend(b); } b.textContent=warn? msg : msg+" Records can still be read, but nothing new is saved until this is fixed."; b.style.background=warn?"#8a5a00":"var(--danger)"; }
   async function loadAll(){ const j=await api("/api/data"); saveBanner(j.saveError||j.saveWarn, !j.saveError); if(j.fileKey) Store.fileKey=j.fileKey; Store.data={children:{},conferences:{},settings:{},...j.data}; Store.rev=j.rev; Store.bootId=j.bootId; notify(); }
   let polling=false;
+  /* stop checking for changes after 10 quiet minutes, so a forgotten open tab lets the free server sleep */
+  const IDLE_MS=10*60*1000; let lastActive=Date.now(), idle=false;
+  function noteActive(){ lastActive=Date.now(); if(idle){ idle=false; poll(); } }
+  ["pointerdown","keydown","input","wheel","touchstart"].forEach(ev=>window.addEventListener(ev,noteActive,{passive:true,capture:true}));
   async function poll(){
+    if(Date.now()-lastActive>IDLE_MS){ idle=true; return; }
     if(document.hidden || !Auth.token || polling) return;
     polling=true; const sent=Date.now();
     try{
@@ -316,7 +321,7 @@ details summary{cursor:pointer;font-weight:600}
       g.hidden=true; document.getElementById("gate-form").style.display=""; note.remove(); }
     await loadAll();
     setInterval(poll, 15000);
-    document.addEventListener("visibilitychange",()=>{ if(!document.hidden) poll(); });
+    document.addEventListener("visibilitychange",()=>{ if(!document.hidden) noteActive(); });
     const top=document.querySelector(".top-actions");
     if(top){ const w=document.createElement("div"); w.className="who-chip"; w.innerHTML=`<span></span><button class="btn sm ghost" type="button">Sign out</button>`; w.firstChild.textContent=Auth.name||""; w.lastChild.onclick=signOut; top.prepend(w); }
   }
