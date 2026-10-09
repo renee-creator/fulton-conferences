@@ -186,6 +186,8 @@ table.list tr.click:hover td{background:var(--accent-soft)}
 .guide li{margin-bottom:6px}
 .guide{padding-left:18px;margin:0;font-size:.88rem}
 details summary{cursor:pointer;font-weight:600}
+.flag-next{display:flex;gap:16px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;background:#fdf3d8;border:1px solid #e3c46f;border-left:5px solid #c9962a;border-radius:10px;padding:12px 16px;margin-bottom:14px;color:#4a3a12}
+.flag-next b{color:#3b2d08}
 </style>
 
 <header class="top">
@@ -397,9 +399,9 @@ const PREP = [
   {k:"renee", label:"Invited Renee to join (optional)"},
 ];
 const DEFAULT_GROUPS = [
-  {name:"Cosmos",room:"West",educator:"Lauren M"},{name:"Zinnia",room:"West",educator:"Lauren F"},
+  {name:"Cosmos",room:"West",educator:"Lauren M"},{name:"Yarrow",room:"West",educator:"Lauren M"},{name:"Zinnia",room:"West",educator:"Lauren F"},{name:"Borage",room:"West",educator:"Lauren F"},
   {name:"Marigold",room:"North",educator:"Hannah"},{name:"Morning Glory",room:"North",educator:"Justine"},{name:"Sunflower",room:"North",educator:"Yarely"},
-  {name:"Lavender",room:"South",educator:"Chris"},{name:"Iris",room:"South",educator:"Ahlina"}];
+  {name:"Poppy",room:"South",educator:""},{name:"Lavender",room:"South",educator:"Chris"},{name:"Iris",room:"South",educator:"Ahlina"}];
 const ONBOARD = [
   {k:"questionnaire", label:"Read the Family Questionnaire"},
   {k:"welcomeCall", label:"Welcome phone call with the family"},
@@ -548,11 +550,11 @@ function groupOf(c){ return c?.group ? groupsList().find(g=>g.name===c.group) : 
 function educatorOf(c){ return (c?.primaryEducator||"").trim() || groupOf(c)?.educator || ""; }
 function educatorsFor(room){ const e=S.settings.educators||{}; const g=groupsList().filter(x=>!room||x.room===room).map(x=>x.educator); return [...new Set([...(room? (e[room]||[]) : Object.values(e).flat()), ...g].filter(Boolean))]; }
 function eduFilter(list){ const f=S.filters.edu||"All"; return f==="All"? list : list.filter(c=>educatorOf(c)===f); }
-const SORTS=[["room","Classroom, then last name"],["last","Last name"],["first","First name"],["age","Oldest first"]];
+const SORTS=[["room","Classroom, then first name"],["last","Last name"],["first","First name"],["age","Oldest first"]];
 function sortKids(list){
   const s=S.filters.sort||"room", by=(k)=>(x,y)=>(!x[k])-(!y[k]) || (x[k]||"").localeCompare(y[k]||"");
   const rooms=S.settings.classrooms||[], ri=c=>{ const i=rooms.indexOf(c.classroom); return i<0? 99 : i; };
-  const cmp={room:(a,b)=>ri(a)-ri(b)||by("classroom")(a,b)||by("last")(a,b)||by("first")(a,b),
+  const cmp={room:(a,b)=>ri(a)-ri(b)||by("classroom")(a,b)||by("first")(a,b)||by("last")(a,b),
     last:(a,b)=>by("last")(a,b)||by("first")(a,b), first:(a,b)=>by("first")(a,b)||by("last")(a,b),
     age:(a,b)=>(a.dob||"9999").localeCompare(b.dob||"9999")||by("last")(a,b)}[s]||((a,b)=>0);
   return list.sort(cmp);
@@ -852,6 +854,15 @@ function childPanels(c){
 }
 
 /* ---------- conference editor ---------- */
+// On the conference form, flag a child who can start TK or Kindergarten the fall after this school year
+function nextYearFlag(c, cf, dis){
+  const start=parseInt(cf.schoolYear,10); const ny=Number.isFinite(start)? start+1 : nextFallYear();
+  if(ny<nextFallYear()) return "";
+  const el=eligibility(c, ny); if(!el) return "";
+  const key=`${ny}-${String(ny+1).slice(2)}`, tr=c.transition?.[key]||{};
+  return `<div class="flag-next" role="note"><div><b>Eligible for ${esc(el.label)} in Fall ${ny}.</b> ${esc(c.first||"This child")} will be ${ageOnSept1(c.dob,ny)} on September 1, so talk with the family about next year at this conference.</div>
+    <div class="field" style="margin:0;min-width:220px"><label for="flag-plan">Family's plan</label><select id="flag-plan" data-ck="${esc(c.id)}|transition.${key}.plan" ${dis}>${PLANS.map(([v,l])=>`<option value="${v}" ${(tr.plan||"")===v?"selected":""}>${l}</option>`).join("")}</select></div></div>`;
+}
 function viewConf(id){
   const cf=S.confs[id]; if(!cf) return `<div class="empty">This conference record was not found. <a href="#" data-go="overview">Back to overview</a></div>`;
   const c=S.children[cf.childId]||{};
@@ -877,17 +888,18 @@ function viewConf(id){
     </div>
   </div>
   ${ro?`<div class="notice" style="margin-bottom:14px">You have view-only access to this record.</div>`:""}
+  ${nextYearFlag(c, cf, dis)}
   <div class="ed">
     <div class="stack" style="min-width:0">
       <div class="sheet">
         <div class="sheet-sec">
           <div class="sheet-title"><h2>Conference details</h2></div>
-          <div class="grid4">
+          <div class="grid3">
             <div class="field"><label for="i-confDate">Conference date</label><input type="date" id="i-confDate" data-k="confDate" value="${esc(cf.confDate||"")}" ${dis}></div>
             <div class="field"><label for="i-confTime">Time</label><input type="time" id="i-confTime" data-k="confTime" value="${esc(cf.confTime||"")}" ${dis}></div>
             <div class="field"><label for="i-format">Format</label><select id="i-format" data-k="format" ${dis}>${["","In person","Virtual","Phone"].map(o=>`<option ${cf.format===o?"selected":""} value="${o}">${o||"Choose"}</option>`).join("")}</select></div>
-            <div class="field"><label for="i-teacher">Educator</label><input id="i-teacher" data-k="teacher" value="${esc(cf.teacher||"")}" ${dis} autocomplete="off" placeholder="Name"></div>
           </div>
+          <div class="field" style="margin-top:12px"><label for="i-teacher">Educators</label><input id="i-teacher" data-k="teacher" value="${esc(cf.teacher||"")}" ${dis} autocomplete="off" placeholder="Everyone who held the conference, separated by commas${educatorOf(c)? ", like "+esc(educatorOf(c)) : ""}"></div>
           ${cf.term==="Additional"? `<div class="field" style="margin-top:12px"><label for="i-reason">Reason for this conference</label><select id="i-reason" data-k="reason" ${dis}>${REASONS.map(o=>`<option value="${o}" ${(cf.reason||"")===o?"selected":""}>${o||"Choose"}</option>`).join("")}</select></div>`:""}
           <div class="grid2" style="margin-top:12px">
             <div class="field"><label for="i-signup">Family sign-up</label><select id="i-signup" data-k="signup" ${dis}>${SIGNUP.map(([v,l])=>`<option value="${v}" ${(cf.signup||"")===v?"selected":""}>${l}</option>`).join("")}</select></div>
@@ -1247,13 +1259,13 @@ async function saveFile(filename, blob){
 }
 function csvCell(v){ v=String(v??""); return /[",\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; }
 function exportSeasonCSV(){
-  const rows=[["Child","Classroom","Primary educator","Status","Family sign-up","Conference date","Time","Format","Educator","Sections filled","Follow-up date"]];
+  const rows=[["Child","Classroom","Primary educator","Status","Family sign-up","Conference date","Time","Format","Educators","Sections filled","Follow-up date"]];
   sortKids(activeChildren()).forEach(c=>{ const cf=periodConf(c.id);
     rows.push([childName(c),c.classroom,c.primaryEducator,confStatus(cf).label,(SIGNUP.find(s=>s[0]===(cf?.signup||""))||[])[1],cf?.confDate,cf?.confTime,cf?.format,cf?.teacher,cf?filledCount(cf)+"/"+TOTAL_FIELDS:"",cf?.followUpDate]); });
   saveFile(`conferences-${S.period.term.toLowerCase()}-${S.period.year}.csv`, new Blob([rows.map(r=>r.map(csvCell).join(",")).join("\n")],{type:"text/csv"}));
 }
 function exportAllCSV(){
-  const head=["Child","Classroom","School year","Season","Status","Conference date","Educator","Family present",...FIELDS.map(f=>f.label),"Progress on earlier goals",...REFLECTIONS.map((r,i)=>"Reflection "+(i+1)),"Other sections from the original form"];
+  const head=["Child","Classroom","School year","Season","Status","Conference date","Educators","Family present",...FIELDS.map(f=>f.label),"Progress on earlier goals",...REFLECTIONS.map((r,i)=>"Reflection "+(i+1)),"Other sections from the original form"];
   const rows=[head];
   Object.values(S.confs).sort(confSort).forEach(cf=>{ const c=S.children[cf.childId];
     rows.push([childName(c),c?.classroom,cf.schoolYear,cf.term,confStatus(cf).label,cf.confDate,cf.teacher,cf.familyPresent,...FIELDS.map(f=>cf.fields?.[f.k]),cf.prevGoalsProgress,...REFLECTIONS.map(r=>cf.reflections?.[r.k]),cf.otherSections]); });
@@ -1303,7 +1315,7 @@ async function downloadDocx(list, child){
     sections.push({properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},children:[
       new D.Paragraph({children:[new D.TextRun({text:"Fulton Community School & Farm",size:18,color:"55625A"})]}),
       title(`Family Conference · ${confLabel(cf)}`),
-      new D.Paragraph({spacing:{after:80},children:[new D.TextRun({text:"Conference Date and Time  ",bold:true,size:20}),new D.TextRun({text:[fmtDate(cf.confDate),fmtTime(cf.confTime),cf.format].filter(Boolean).join(", ")||"________________",size:20}),new D.TextRun({text:"     Educator  ",bold:true,size:20}),new D.TextRun({text:cf.teacher||"________________",size:20})]}),
+      new D.Paragraph({spacing:{after:80},children:[new D.TextRun({text:"Conference Date and Time  ",bold:true,size:20}),new D.TextRun({text:[fmtDate(cf.confDate),fmtTime(cf.confTime),cf.format].filter(Boolean).join(", ")||"________________",size:20}),new D.TextRun({text:"     Educators  ",bold:true,size:20}),new D.TextRun({text:cf.teacher||"________________",size:20})]}),
       new D.Paragraph({spacing:{after:120},children:[new D.TextRun({text:"Developmental areas follow the DRDP domains. Educators review the Family Questionnaire and current DRDP documentation before the conference.",italics:true,size:16})]}),
       new D.Table({width:{size:100,type:D.WidthType.PERCENTAGE},rows}),
       conf(CONF),
@@ -1380,6 +1392,7 @@ Rules
 - Never drop writing. Anything that fits no current section goes in otherSections, each piece starting with the original section title, like "Self-help skills. Uses the bathroom on her own." with a blank line between pieces.
 - Two older layouts are common. Map them this way. Child's Learning Style goes in approaches. Friends or Interacts with most goes in friends. Main interests goes in interests. Favorite Area and Activity goes in favoriteAreas. Strengths goes in strengths. Goals, Areas to explore further, and any At school or At home goals go in goals, keeping the words At school and At home in front of each part. Questions the family asked go in r6. Updates the family shared about home go in r1. Parent names written at the top, like Mom and Dad, go in familyMembersPresent and parentNames.
 - Notes written in the margins or outside the boxes go in otherSections, starting with Margin notes. Only include notes that carry meaning about the child or family. Leave out anything already captured elsewhere, such as parent names, times, ages, dates and page numbers. Leave out printed headings, stray single letters or symbols, and descriptions of where something was written.
+- Often more than one educator holds the conference. Put every educator name written on the form in teacher, separated by commas.
 - The Date box sometimes holds only a time, like 3:30 or 9:00. Put that in conferenceTime, not the date.
 - Ages are often written next to the birthdate, like 3y 6m. Report that age in months in ageMonths, so 3y 6m is 42.
 - If a section on the form clearly holds two current areas, such as Language and Cognition together, put the text in the first one and say so in notes.
@@ -1517,7 +1530,7 @@ function showReview(){
       <div><textarea aria-label="${esc(label)}">${esc(val||"")}</textarea>${cur.trim()?`<div class="cur">Already in the record · ${esc(cur.slice(0,240))}${cur.length>240?"…":""}</div>`:""}</div>
       <div><select aria-label="What to do with ${esc(label)}"><option value="replace" ${def==="replace"?"selected":""}>Use this</option><option value="append" ${def==="append"?"selected":""}>Add below existing</option><option value="skip" ${def==="skip"?"selected":""}>Skip</option></select></div></div>`; };
   const metaRows = [
-    ["confDate","Conference date", toISODate(r.conferenceDate)||pd.date||r.conferenceDate],["confTime","Time",r.conferenceTime],["teacher","Educator",r.teacher],
+    ["confDate","Conference date", toISODate(r.conferenceDate)||pd.date||r.conferenceDate],["confTime","Time",r.conferenceTime],["teacher","Educators",r.teacher],
     ["familyPresent","Family members present",r.familyMembersPresent],["reflDate","Reflections date",toISODate(r.reflectionsDate)||r.reflectionsDate]];
   impStatus(`
     <div class="notice" style="margin-bottom:10px">${window.CAREFUL_READ && !ctx.careful?`<button class="btn sm" style="float:right;margin-left:10px" data-act="reread-careful">Read again more carefully</button>`:""}<b>Review before saving.</b> ${r.formVersion&&/older/i.test(r.formVersion)?"This is an older version of the form, so sections were matched by meaning. ":""}Readability ${esc(r.readability||"not rated")}. ${esc(r.notes||"")}</div>
@@ -1760,7 +1773,7 @@ function updateBatchSaveBtn(){
   const blocked=ok.some(F=>!F.childId);
   btn.disabled=!ok.length||blocked; btn.textContent= ok.length? `Save ${ok.length} ${ok.length===1?"form":"forms"}` : "Save checked forms";
 }
-function batchFieldList(){ return [["confDate","Conference date"],["confTime","Time"],["teacher","Educator"],["familyPresent","Family members present"],["reflDate","Reflections date"],...FIELDS.map(f=>["fields."+f.k,f.label]),...REFLECTIONS.map((r,i)=>["reflections."+r.k,"Reflection "+(i+1)]),["otherSections","Other sections from the original form"]]; }
+function batchFieldList(){ return [["confDate","Conference date"],["confTime","Time"],["teacher","Educators"],["familyPresent","Family members present"],["reflDate","Reflections date"],...FIELDS.map(f=>["fields."+f.k,f.label]),...REFLECTIONS.map((r,i)=>["reflections."+r.k,"Reflection "+(i+1)]),["otherSections","Other sections from the original form"]]; }
 function batchValue(F,path){
   if(path in F.edits) return F.edits[path];
   const r=F.result||{};
