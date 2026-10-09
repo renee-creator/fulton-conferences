@@ -37,6 +37,7 @@
   function gateMsg(t,bad){ const m=document.getElementById("gate-msg"); if(m){ m.textContent=t||""; m.className="msg "+(bad?"bad":"muted"); } }
   function signOut(){ Auth.token=null; Auth.name=null; LS.set("fc-token",null); LS.set("fc-name",null); location.reload(); }
   window.FC_SIGN_OUT=signOut;
+  window.FC_SIGNUP_FEED=(fresh,link)=>api("/api/signup-feed",{fresh:!!fresh,link:link||""});
 
   async function api(path, body, signal){
     let r;

@@ -269,6 +269,53 @@ function readBody(req) {
   });
 }
 let readTimes = []; let readsRunning = 0; let stopping = false;
+
+/* ---------- SignUpGenius calendar feed ---------- */
+const feedCache = { url: '', at: 0, data: null };
+function getText(url, hops = 0) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    if (u.protocol !== 'https:' || !/(^|\.)signupgenius\.com$/i.test(u.hostname)) { reject(new Error('Only SignUpGenius calendar links can be read.')); return; }
+    const req = https.get(u, { headers: { 'User-Agent': 'fulton-conferences', 'Accept': 'text/calendar,*/*' } }, res => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && hops < 3) { res.resume(); resolve(getText(new URL(res.headers.location, u).toString(), hops + 1)); return; }
+      const chunks = []; let n = 0;
+      res.on('data', c => { n += c.length; if (n > 5e6) { req.destroy(new Error('The calendar is too large.')); return; } chunks.push(c); });
+      res.on('end', () => resolve({ status: res.statusCode, text: Buffer.concat(chunks).toString('utf8') }));
+      res.on('error', reject);
+    });
+    req.setTimeout(20000, () => req.destroy(new Error('SignUpGenius did not answer in time.')));
+    req.on('error', reject);
+  });
+}
+// local wall time in California for a moment given in UTC
+function laParts(d) {
+  const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const o = Object.fromEntries(f.formatToParts(d).map(x => [x.type, x.value]));
+  return { date: `${o.year}-${o.month}-${o.day}`, time: `${o.hour}:${o.minute}` };
+}
+function icsTime(prop) {
+  if (!prop) return null;
+  const v = prop.value; const m = v.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/); if (!m) return null;
+  if (!m[4]) return { date: `${m[1]}-${m[2]}-${m[3]}`, time: '' };
+  if (m[7]) return laParts(new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5])));
+  return { date: `${m[1]}-${m[2]}-${m[3]}`, time: `${m[4]}:${m[5]}` };   // already local time
+}
+function parseIcs(text) {
+  const lines = String(text).replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/);
+  const unesc = s => s.replace(/\\n/gi, '\n').replace(/\\([,;\\])/g, '$1');
+  const out = []; let ev = null;
+  for (const line of lines) {
+    if (line === 'BEGIN:VEVENT') { ev = {}; continue; }
+    if (line === 'END:VEVENT') { if (ev) out.push(ev); ev = null; continue; }
+    if (!ev) continue;
+    const i = line.indexOf(':'); if (i < 0) continue;
+    const name = line.slice(0, i).split(';')[0].toUpperCase(); ev[name] = { value: line.slice(i + 1) };
+  }
+  return out.map(e => { const s = icsTime(e.DTSTART), en = icsTime(e.DTEND);
+    return { uid: e.UID ? e.UID.value : '', date: s ? s.date : '', time: s ? s.time : '', end: en ? en.time : '',
+      summary: unesc(e.SUMMARY ? e.SUMMARY.value : ''), description: unesc(e.DESCRIPTION ? e.DESCRIPTION.value : ''), location: unesc(e.LOCATION ? e.LOCATION.value : '') }; })
+    .filter(e => e.date).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+}
 function snapshot() {
   const out = {}; for (const k of KINDS) { out[k] = {}; for (const [id, r] of store.recs[k]) if (!r.deleted) out[k][id] = r.doc; }
   return out;
@@ -355,6 +402,20 @@ async function handle(req, res) {
     noteChange(kind, id); scheduleSave(kind, id);
     const r = map.get(id);
     json(req, res, 200, { ok: true, rev, doc: r && !r.deleted ? r.doc : null }); return;
+  }
+  if (path === '/api/signup-feed') {
+    const set = store.recs.settings.get('main'); let link = String(body.link || (set && set.doc && set.doc.signupFeed) || '').trim().replace(/^webcal:\/\//i, 'https://');
+    if (!link) { err(req, res, 400, 'Add the SignUpGenius calendar link in Settings first.'); return; }
+    try {
+      if (!(feedCache.url === link && Date.now() - feedCache.at < 5 * 60000 && !body.fresh)) {
+        const r = await getText(link);
+        if (r.status !== 200) throw new Error('SignUpGenius answered ' + r.status + '.');
+        if (!/BEGIN:VCALENDAR/.test(r.text)) throw new Error(/does not exist/i.test(r.text) ? 'SignUpGenius says this calendar does not exist. In SignUpGenius, open Tools, then Calendar Subscriptions, check the feed is saved with the conference sign up in it, and copy its link again.' : 'That link did not return a calendar.');
+        feedCache.url = link; feedCache.at = Date.now(); feedCache.data = parseIcs(r.text);
+      }
+      json(req, res, 200, { events: feedCache.data, checkedAt: new Date(feedCache.at).toISOString() });
+    } catch (e) { err(req, res, 502, e.message); }
+    return;
   }
   if (path === '/api/save-now') { const ok = await flushEverything().catch(() => false); if (ok) json(req, res, 200, { ok: true }); else err(req, res, 502, 'Some changes have not reached GitHub yet. Saving keeps trying.'); return; }
   if (path === '/api/original') {
