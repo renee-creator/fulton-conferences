@@ -77,6 +77,8 @@ main{max-width:1180px;margin:0 auto;padding:24px 16px 80px}
 .st-progress{background:var(--prog-soft);color:var(--prog)}
 .st-none{background:var(--todo-soft);color:var(--todo)}
 .st-held{background:var(--danger-soft);color:var(--danger)}
+.pf-late{background:var(--danger-soft)}
+input[type=checkbox]{accent-color:var(--accent)}
 .st-nosignup{background:var(--surface-2);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
 .st-withdrawn{background:var(--danger-soft);color:var(--danger)}
 
@@ -195,6 +197,8 @@ details summary{cursor:pointer;font-weight:600}
     <nav class="tabs" id="tabs">
       <button data-go="overview">Overview</button>
       <button data-go="children">Children</button>
+      <button data-go="portfolios">Portfolios</button>
+      <button data-go="nextyear">Next year</button>
       <button data-go="settings">Settings</button>
     </nav>
     <div class="top-actions">
@@ -392,7 +396,28 @@ const PREP = [
   {k:"offeredVirtual", label:"Offered an in-person or virtual option"},
   {k:"renee", label:"Invited Renee to join (optional)"},
 ];
+const DEFAULT_GROUPS = [
+  {name:"Cosmos",room:"West",educator:"Lauren M"},{name:"Zinnia",room:"West",educator:"Lauren F"},
+  {name:"Marigold",room:"North",educator:"Hannah"},{name:"Morning Glory",room:"North",educator:"Justine"},{name:"Sunflower",room:"North",educator:"Yarely"},
+  {name:"Lavender",room:"South",educator:"Chris"},{name:"Iris",room:"South",educator:"Ahlina"}];
+const ONBOARD = [
+  {k:"questionnaire", label:"Read the Family Questionnaire"},
+  {k:"welcomeCall", label:"Welcome phone call with the family"},
+  {k:"visitScheduled", label:"Home or garden visit scheduled"},
+  {k:"calendar", label:"Visit added to the CFC internal calendar"},
+  {k:"contactVerified", label:"Contact information verified"},
+  {k:"visitDone", label:"Visit completed and notes written"},
+  {k:"thankYou", label:"Thank you sent after the visit"},
+  {k:"teamShared", label:"Shared what we learned with the team"},
+  {k:"labels", label:"Labels made for cup, cubby and cot"},
+  {k:"aboutMe", label:"All About Me book received"},
+  {k:"firstDay", label:"First day at school"},
+];
+const MONTHS = ["Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun","Jul"];
+const PLANS = [["","Not discussed yet"],["staying","Staying at Fulton"],["tk","Going to TK"],["k","Going to Kindergarten"],["deciding","Family still deciding"],["other","Other"]];
+const REASONS = ["","Behavior or safety concern","Family request","Teacher request","Follow-up on goals","Transition or next school","Other"];
 const DEFAULT_SETTINGS = {
+  groups: DEFAULT_GROUPS,
   classrooms:["West","North","South"],
   years:["2025-26","2026-27","2027-28"],
   educators:{West:[],North:[],South:[]},
@@ -406,7 +431,7 @@ const S = {
   db:null, user:null, sample:null, assets:null, downloads:null, uid:null, canWrite:null,
   children:{}, confs:{}, settings:structuredClone(DEFAULT_SETTINGS),
   loaded:{children:false,confs:false}, dbState:"waiting",
-  view:{name:"overview"}, period:null, filters:{q:"",room:"All",status:"All",show:"active"},
+  view:{name:"overview"}, period:null, filters:{q:"",room:"All",status:"All",show:"active",edu:"All"},
   names:{},
 };
 S.period = currentPeriod();
@@ -518,7 +543,18 @@ function priorConf(conf){
   const list = confsFor(conf.childId).filter(c=>c.id!==conf.id && confKey(c) < (confKey(conf)||"9999"));
   return list.length? list[list.length-1] : null;
 }
-function educatorsFor(room){ const e=S.settings.educators||{}; return room? (e[room]||[]) : Object.values(e).flat(); }
+function groupsList(){ return Array.isArray(S.settings.groups)? S.settings.groups : DEFAULT_GROUPS; }
+function groupOf(c){ return c?.group ? groupsList().find(g=>g.name===c.group) : null; }
+function educatorOf(c){ return (c?.primaryEducator||"").trim() || groupOf(c)?.educator || ""; }
+function educatorsFor(room){ const e=S.settings.educators||{}; const g=groupsList().filter(x=>!room||x.room===room).map(x=>x.educator); return [...new Set([...(room? (e[room]||[]) : Object.values(e).flat()), ...g].filter(Boolean))]; }
+function eduFilter(list){ const f=S.filters.edu||"All"; return f==="All"? list : list.filter(c=>educatorOf(c)===f); }
+function eduSelect(){ const all=educatorsFor(); const f=S.filters.edu||"All"; return `<select id="f-edu" aria-label="Educator"><option value="All">Every educator</option>${all.map(n=>`<option ${f===n?"selected":""}>${esc(n)}</option>`).join("")}</select>`; }
+function nextFallYear(d=new Date()){ return d.getMonth()>=7? d.getFullYear()+1 : d.getFullYear(); }
+function ageOnSept1(dob, year){ if(!dob) return null; const b=new Date(dob+"T12:00:00"), s=new Date(year,8,1,12); let a=s.getFullYear()-b.getFullYear(); if(s.getMonth()<b.getMonth()||(s.getMonth()===b.getMonth()&&s.getDate()<b.getDate())) a--; return a; }
+function eligibility(c, year){ const a=ageOnSept1(c.dob, year); if(a==null) return null; if(a>=6) return {key:"1st",label:"First grade"}; if(a>=5) return {key:"k",label:"Kindergarten"}; if(a>=4) return {key:"tk",label:"TK"}; return null; }
+function onboardCount(c){ return ONBOARD.filter(s=>c.onboarding?.[s.k]).length; }
+function isNewChild(c){ if(c.status==="withdrawn") return false; if(onboardCount(c)>=ONBOARD.length) return false; if(c.onboarding?.started) return true; const e=c.enrollDate? new Date(c.enrollDate+"T12:00:00") : null; return !!e && (e-new Date())> -45*864e5; }
+async function saveChildField(id, path, val){ try{ await dbUpdate("children/"+id, setPath({updatedAt:nowISO()}, path, val)); }catch(e){} }
 function blobUrl(id){ return window.BLOB_URL? window.BLOB_URL(id) : "/_blob/"+id; }
 function toast(msg){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.append(t); setTimeout(()=>t.remove(),2800); }
 function saveFilters(){ try{ localStorage.setItem("fcf-filters", JSON.stringify(S.filters)); }catch(e){} }
@@ -558,6 +594,7 @@ function refresh(){
   requestAnimationFrame(()=>{ rafPending=false;
     if(S.view.name==="conf" && $("#conf-editor")?.dataset.id===S.view.id){ syncEditor(); return; }
     if(S.view.name==="settings" && $("#settings-form")) return; // avoid clobbering typing
+    const ae=document.activeElement; if(ae && ae.dataset?.ck && /TEXTAREA|INPUT/.test(ae.tagName) && ae.type!=="checkbox"){ S.deferRender=true; return; }
     render();
   });
 }
@@ -584,6 +621,7 @@ function handleWriteError(e){
 /* ---------- routing ---------- */
 function go(name, extra={}){ flushAll(); S.view={name,...extra}; window.scrollTo(0,0); render(); }
 document.addEventListener("click", e=>{
+  if(e.target.closest("tr[data-go], tr[data-act]") && e.target.closest("select, input, textarea, label")) return;
   const g = e.target.closest("[data-go]"); if(g){ e.preventDefault(); go(g.dataset.go, g.dataset.id?{id:g.dataset.id}:{}); return; }
   const a = e.target.closest("[data-act]"); if(a){ e.preventDefault(); actions[a.dataset.act]?.(a, e); }
 });
@@ -604,6 +642,8 @@ function render(){
   else if(v==="child") app.innerHTML = viewChild(S.view.id);
   else if(v==="conf"){ app.innerHTML = viewConf(S.view.id); afterConfRender(); }
   else if(v==="settings") app.innerHTML = viewSettings();
+  else if(v==="portfolios") app.innerHTML = viewPortfolios();
+  else if(v==="nextyear") app.innerHTML = viewNextYear();
   bindFilters();
   if(keepId){ const n=document.getElementById(keepId); if(n){ n.focus({preventScroll:true}); if(sel) try{ n.setSelectionRange(sel[0],sel[1]); }catch(e){} window.scrollTo(0,y); } }
 }
@@ -623,7 +663,7 @@ const tot = {total:0,complete:0,nosignup:0,held:0,scheduled:0,progress:0,none:0}
       <div class="bar" role="img" aria-label="${c.complete} complete, ${c.held} date passed, ${c.scheduled} scheduled, ${c.progress} preparing, ${c.none} not started"><i style="width:${pct("complete")}%;background:var(--ok)"></i><i style="width:${pct("held")}%;background:var(--danger)"></i><i style="width:${pct("nosignup")}%;background:var(--muted);opacity:.55"></i><i style="width:${pct("scheduled")}%;background:var(--sched)"></i><i style="width:${pct("progress")}%;background:var(--prog)"></i></div>
       <div class="legend"><span style="--c:var(--ok)">${c.complete} complete</span>${c.held?`<span style="--c:var(--danger)">${c.held} date passed</span>`:""}${c.nosignup?`<span style="--c:var(--muted)">${c.nosignup} did not sign up</span>`:""}<span style="--c:var(--sched)">${c.scheduled} scheduled</span><span style="--c:var(--prog)">${c.progress} preparing</span><span style="--c:var(--todo)">${c.none} not started</span></div></div>`; };
   const f=S.filters;
-  let list = kids.filter(c=> (f.room==="All"||c.classroom===f.room));
+  let list = eduFilter(kids.filter(c=> (f.room==="All"||c.classroom===f.room)));
   if(f.q) list = list.filter(c=>childName(c).toLowerCase().includes(f.q.toLowerCase()));
   if(f.status!=="All") list = list.filter(c=>confStatus(periodConf(c.id)).key===f.status);
   list.sort((a,b)=>(a.classroom||"").localeCompare(b.classroom||"") || (a.last||"").localeCompare(b.last||""));
@@ -631,7 +671,7 @@ const tot = {total:0,complete:0,nosignup:0,held:0,scheduled:0,progress:0,none:0}
     return `<tr class="click" tabindex="0" data-act="open-child-conf" data-id="${esc(c.id)}">
       <td class="name-cell"><b>${esc(childName(c))}</b><div class="small muted">${esc(ageAt(c.dob))}</div></td>
       <td>${esc(c.classroom||"")}</td>
-      <td>${esc(c.primaryEducator||"")}</td>
+      <td>${esc(educatorOf(c))}</td>
       <td>${chip(st)}</td>
       <td class="mono small">${cf?.confDate? esc(fmtDate(cf.confDate,{month:"short",day:"numeric"}))+(cf.confTime?" "+esc(fmtTime(cf.confTime)):""):""}</td>
       <td class="mono small">${cf? filledCount(cf)+"/"+TOTAL_FIELDS:""}</td>
@@ -657,6 +697,7 @@ const tot = {total:0,complete:0,nosignup:0,held:0,scheduled:0,progress:0,none:0}
         <input type="search" id="f-q" placeholder="Find a child" value="${esc(f.q)}" aria-label="Find a child">
         <select id="f-room" aria-label="Classroom"><option>All</option>${rooms.map(r=>`<option ${f.room===r?"selected":""}>${esc(r)}</option>`).join("")}</select>
         <select id="f-status" aria-label="Status"><option value="All">Every status</option>${[["none","Not started"],["progress","Preparing"],["scheduled","Scheduled"],["held","Date passed"],["nosignup","Did not sign up"],["complete","Complete"]].map(([k,l])=>`<option value="${k}" ${f.status===k?"selected":""}>${l}</option>`).join("")}</select>
+        ${eduSelect()}
         <span class="small muted mono">${list.length} of ${tot.total}</span>
       </div>
       ${kids.length? `<div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th><th>Room</th><th>Primary educator</th><th>Status</th><th>When</th><th>Filled</th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="empty">No children match these filters.</td></tr>`}</tbody></table></div>`
@@ -672,6 +713,8 @@ const tot = {total:0,complete:0,nosignup:0,held:0,scheduled:0,progress:0,none:0}
         <p class="small muted" style="margin:0 0 10px">${waiting.length} ${waiting.length===1?"family has":"families have"} no conference date yet and ${waiting.length===1?"has":"have"} not signed up.</p>
         ${waiting.length?`<div class="stack" style="gap:8px"><button class="btn sm" data-act="copy-emails">Copy their parent emails</button>${canEdit()?`<button class="btn sm ghost" data-act="mark-noresponse">Mark them as no response</button>`:""}</div>`:""}
         </div>`; })()}
+      ${(()=>{ const nw=kids.filter(isNewChild).sort((a,b)=>(a.enrollDate||"").localeCompare(b.enrollDate||""));
+        return nw.length? `<div class="panel"><h3>New children getting started</h3><ul class="list-plain">${nw.slice(0,10).map(c=>`<li><span><a href="#" data-go="child" data-id="${esc(c.id)}"><b>${esc(childName(c))}</b></a><div class="small muted">${esc(c.classroom||"")}${c.enrollDate?" · starts "+esc(fmtDate(c.enrollDate,{month:"short",day:"numeric"})):""}</div></span><span class="mono small">${onboardCount(c)}/${ONBOARD.length}</span></li>`).join("")}</ul></div>` : ""; })()}
       <div class="panel"><h3>Follow-ups due</h3>
         ${follow.length? `<ul class="list-plain">${follow.map(c=>li(c,c.followUpDate, esc(c.followUpNote||"Check in with the family")+(c.followUpDate<today?' · <span style="color:var(--danger)">past due</span>':""))).join("")}</ul>` : `<p class="small muted">Follow-up check-ins set inside a conference appear here two weeks ahead.</p>`}
       </div>
@@ -687,13 +730,15 @@ function viewChildren(){
   const f=S.filters, rooms=S.settings.classrooms;
   let list = Object.values(S.children).filter(c=> f.show==="all" || (f.show==="withdrawn"? c.status==="withdrawn" : c.status!=="withdrawn"));
   if(f.room!=="All") list=list.filter(c=>c.classroom===f.room);
+  list=eduFilter(list);
   if(f.q) list=list.filter(c=>(childName(c)+" "+(c.parents||[]).map(p=>p.name).join(" ")).toLowerCase().includes(f.q.toLowerCase()));
   list.sort((a,b)=>(a.classroom||"").localeCompare(b.classroom||"") || (a.last||"").localeCompare(b.last||""));
   const rows = list.map(c=>{ const n=confsFor(c.id).length;
     return `<tr class="click" tabindex="0" data-go="child" data-id="${esc(c.id)}">
     <td class="name-cell"><b>${esc(childName(c))}</b>${c.status==="withdrawn"?' <span class="chip st-withdrawn">Withdrawn</span>':""}</td>
     <td class="mono small">${esc(fmtDate(c.dob))}</td><td class="small">${esc(ageAt(c.dob))}</td>
-    <td>${esc(c.classroom||"")}</td><td class="small">${esc(c.program||"")}</td>
+    <td>${esc(c.classroom||"")}</td>
+    <td class="small">${canEdit()? `<select data-group-for="${esc(c.id)}" aria-label="Small group for ${esc(childName(c))}"><option value="">Choose</option>${groupsList().filter(g=>!c.classroom||g.room===c.classroom).map(g=>`<option ${c.group===g.name?"selected":""}>${esc(g.name)}</option>`).join("")}</select>` : esc(c.group||"")}<div class="muted">${esc(educatorOf(c))}</div></td>
     <td class="small">${esc((c.parents||[]).map(p=>p.name).join(", "))}</td>
     <td class="mono small">${n}</td></tr>`; }).join("");
   return `
@@ -705,9 +750,10 @@ function viewChildren(){
     <input type="search" id="f-q" placeholder="Find a child or parent" value="${esc(f.q)}" aria-label="Find">
     <select id="f-room" aria-label="Classroom"><option>All</option>${rooms.map(r=>`<option ${f.room===r?"selected":""}>${esc(r)}</option>`).join("")}</select>
     <div class="seg" role="group" aria-label="Enrollment">${[["active","Enrolled"],["withdrawn","Withdrawn"],["all","All"]].map(([k,l])=>`<button data-act="show" data-v="${k}" aria-pressed="${f.show===k}">${l}</button>`).join("")}</div>
+    ${eduSelect()}
     <span class="small muted mono">${list.length} shown</span>
   </div>
-  ${list.length? `<div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th><th>Birthdate</th><th>Age</th><th>Room</th><th>Program</th><th>Family</th><th>Conferences</th></tr></thead><tbody>${rows}</tbody></table></div>`
+  ${list.length? `<div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th><th>Birthdate</th><th>Age</th><th>Room</th><th>Small group and educator</th><th>Family</th><th>Conferences</th></tr></thead><tbody>${rows}</tbody></table></div>`
   : `<div class="panel empty">No children here yet. ${canEdit()?`<button class="btn" data-act="child-new">Add a child</button>`:""}</div>`}`;
 }
 
@@ -721,7 +767,7 @@ function viewChild(id){
   const labelFor = pick.startsWith("f.")? FIELDS.find(f=>"f."+f.k===pick)?.label : REFLECTIONS.find(r=>"r."+r.k===pick)?.q;
   const tl = list.map(cf=>{ const st=confStatus(cf);
     const goals=(cf.fields?.goals||"").trim(), next=(cf.fields?.nextSteps||"").trim(), str=(cf.fields?.strengths||"").trim();
-    return `<div class="tl-item"><div class="tl-when"><b>${esc(cf.term==="Historical"?"Earlier":confLabel(cf))}</b>${esc(fmtDate(cf.confDate)||"Date not set")}<div>${esc(ageAt(c.dob, cf.confDate||undefined))}</div></div>
+    return `<div class="tl-item"><div class="tl-when"><b>${esc(cf.term==="Historical"?"Earlier":confLabel(cf))}</b>${cf.reason?`<div>${esc(cf.reason)}</div>`:""}${esc(fmtDate(cf.confDate)||"Date not set")}<div>${esc(ageAt(c.dob, cf.confDate||undefined))}</div></div>
       <div class="tl-card"><div class="spread"><div class="row">${chip(st)}<span class="small muted">${esc(cf.teacher||"")}</span></div><div class="row"><span class="mono small muted">${filledCount(cf)}/${TOTAL_FIELDS}</span><button class="btn sm" data-go="conf" data-id="${esc(cf.id)}">Open</button></div></div>
       ${str?`<div style="margin-top:10px"><div class="eyebrow">Strengths</div><p>${esc(str)}</p></div>`:""}
       ${goals?`<div style="margin-top:10px"><div class="eyebrow">Shared goals</div><p>${esc(goals)}</p></div>`:""}
@@ -753,8 +799,10 @@ function viewChild(id){
       <div class="panel"><h3>Family</h3>
         ${(c.parents||[]).length? (c.parents||[]).map(pr=>`<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>${esc(pr.name)}</b><div class="small muted mono" style="user-select:all">${esc(pr.cell||"")}</div><div class="small" style="user-select:all;overflow-wrap:anywhere">${esc(pr.email||"")}</div></div>`).join("") : `<p class="small muted">No family contacts on file.</p>`}
       </div>
+      ${childPanels(c)}
       <div class="panel"><h3>On file</h3><dl class="kv">
-        <dt>Primary educator</dt><dd>${esc(c.primaryEducator||"Not set")}</dd>
+        <dt>Small group</dt><dd>${esc(c.group||"Not set")}</dd>
+        <dt>Primary educator</dt><dd>${esc(educatorOf(c)||"Not set")}</dd>
         <dt>Schedule</dt><dd>${esc(c.schedule||"")}</dd>
         <dt>Enrolled</dt><dd>${esc(fmtDate(c.enrollDate))}</dd>
         <dt>IEP/IFSP</dt><dd>${esc(c.ifsp||"None listed")}</dd>
@@ -762,6 +810,35 @@ function viewChild(id){
       </dl></div>
     </aside>
   </div>`;
+}
+
+function childPanels(c){
+  const ro=!canEdit(), dis=ro?"disabled":""; const id=c.id; const ob=c.onboarding||{};
+  const ck=(path,label,on)=>`<label class="check"><input type="checkbox" data-ck="${esc(id)}|${path}" ${on?"checked":""} ${dis}><span>${esc(label)}</span></label>`;
+  // getting started
+  const showOb = isNewChild(c) || S.view.showOb;
+  const onboard = showOb? `<div class="panel"><div class="spread"><h3>Getting started</h3><span class="mono small muted">${onboardCount(c)}/${ONBOARD.length}</span></div>
+    ${ONBOARD.map(s=>ck("onboarding."+s.k, s.label, ob[s.k])).join("")}
+    <div class="grid2" style="margin-top:8px">
+      <div class="field"><label for="ob-type">Visit</label><select id="ob-type" data-ck="${esc(id)}|onboarding.visitType" ${dis}>${["","Home visit","Garden visit"].map(o=>`<option value="${o}" ${(ob.visitType||"")===o?"selected":""}>${o||"Choose"}</option>`).join("")}</select></div>
+      <div class="field"><label for="ob-date">Visit date</label><input type="date" id="ob-date" data-ck="${esc(id)}|onboarding.visitDate" value="${esc(ob.visitDate||"")}" ${dis}></div>
+    </div>
+    <div class="field" style="margin-top:8px"><label for="ob-notes">Visit notes</label><div class="hint">The Garden Visit questions, filled in after the visit</div><textarea id="ob-notes" data-ck="${esc(id)}|onboarding.visitNotes" rows="4" ${dis}>${esc(ob.visitNotes||"")}</textarea></div>
+    ${!ro && S.sample? `<button class="btn sm" style="margin-top:8px" data-act="visit-upload" data-id="${esc(id)}">Read visit notes from a photo or PDF</button>`:""}
+  </div>` : (!ro? `<div class="panel"><button class="btn sm ghost" data-act="show-onboarding">Show the getting started checklist</button></div>` : "");
+  // portfolio
+  const yr=S.period.year; const pf=c.portfolio?.[yr]||{}; const done=MONTHS.filter(m=>pf[m]).length;
+  const portfolio=`<div class="panel"><div class="spread"><h3>Portfolio ${esc(yr)}</h3><span class="mono small muted">${done} of 12 pages</span></div>
+    <div class="row" style="gap:4px 10px">${MONTHS.map(m=>`<label class="check" style="padding:2px 0"><input type="checkbox" data-pf="${esc(id)}|${yr}|${m}" ${pf[m]?"checked":""} ${dis}><span class="small">${m}</span></label>`).join("")}</div></div>`;
+  // next year
+  const ny=nextFallYear(), key=`${ny}-${String(ny+1).slice(2)}`, el=eligibility(c, ny), tr=c.transition?.[key]||{};
+  const next = el? `<div class="panel"><h3>Fall ${ny}</h3><p class="small muted" style="margin:0 0 8px">Age ${ageOnSept1(c.dob,ny)} on September 1, so eligible for ${esc(el.label)}.</p>
+    <div class="field"><label for="tr-plan">Plan</label><select id="tr-plan" data-ck="${esc(id)}|transition.${key}.plan" ${dis}>${PLANS.map(([v,l])=>`<option value="${v}" ${(tr.plan||"")===v?"selected":""}>${l}</option>`).join("")}</select></div>
+    <div class="field" style="margin-top:8px"><label for="tr-school">Next school</label><input id="tr-school" data-ck="${esc(id)}|transition.${key}.school" value="${esc(tr.school||"")}" ${dis}></div>
+    ${ck(`transition.${key}.infoNight`,"Came to the Kindergarten and TK Info Night",tr.infoNight)}
+    ${ck(`transition.${key}.recordsShared`,"Records or portfolio shared with the next school",tr.recordsShared)}
+  </div>` : "";
+  return onboard + portfolio + next;
 }
 
 /* ---------- conference editor ---------- */
@@ -801,6 +878,7 @@ function viewConf(id){
             <div class="field"><label for="i-format">Format</label><select id="i-format" data-k="format" ${dis}>${["","In person","Virtual","Phone"].map(o=>`<option ${cf.format===o?"selected":""} value="${o}">${o||"Choose"}</option>`).join("")}</select></div>
             <div class="field"><label for="i-teacher">Teacher</label><input id="i-teacher" data-k="teacher" list="educator-list" value="${esc(cf.teacher||"")}" ${dis} autocomplete="off"><datalist id="educator-list">${[...new Set([...educ, ...educatorsFor()])].map(n=>`<option value="${esc(n)}">`).join("")}</datalist></div>
           </div>
+          ${cf.term==="Additional"? `<div class="field" style="margin-top:12px"><label for="i-reason">Reason for this conference</label><select id="i-reason" data-k="reason" ${dis}>${REASONS.map(o=>`<option value="${o}" ${(cf.reason||"")===o?"selected":""}>${o||"Choose"}</option>`).join("")}</select></div>`:""}
           <div class="grid2" style="margin-top:12px">
             <div class="field"><label for="i-signup">Family sign-up</label><select id="i-signup" data-k="signup" ${dis}>${SIGNUP.map(([v,l])=>`<option value="${v}" ${(cf.signup||"")===v?"selected":""}>${l}</option>`).join("")}</select></div>
             <div class="field"><label for="i-signupNote">Sign-up note</label><input id="i-signupNote" data-k="signupNote" value="${esc(cf.signupNote||"")}" ${dis} placeholder="Reminder sent in Kaymbu on 10/20"></div>
@@ -973,6 +1051,7 @@ function viewSettings(){
     <div class="stack" style="gap:10px"><div class="lbl" style="font-weight:600">Educators by classroom</div><div class="hint small muted"><i>Names, separated by commas. These fill the Teacher and Primary educator suggestions.</i></div>
       ${s.classrooms.map(r=>`<div class="field"><label for="s-ed-${esc(r)}">${esc(r)}</label><input id="s-ed-${esc(r)}" data-room="${esc(r)}" value="${esc((s.educators?.[r]||[]).join(", "))}" ${canEdit()?"":"disabled"}></div>`).join("")}
     </div>
+    <div class="field"><label for="s-groups">Small groups</label><div class="hint">One per line, written as group, classroom, educator. The educator becomes the primary educator for every child in that group.</div><textarea id="s-groups" rows="8" ${canEdit()?"":"disabled"}>${esc(groupsList().map(g=>[g.name,g.room,g.educator].join(", ")).join("\n"))}</textarea></div>
     ${canEdit()?`<div class="row"><button class="btn primary" data-act="save-settings">Save settings</button></div>`:""}
   </form>
   <div class="panel stack">
@@ -987,14 +1066,63 @@ function viewSettings(){
   </div></div>`;
 }
 
+function viewPortfolios(){
+  const f=S.filters, rooms=S.settings.classrooms; const yr=S.view.pfYear||S.period.year;
+  const yrs=[...new Set([...(S.settings.years||[]), S.period.year])].sort();
+  let list=activeChildren(); if(f.room!=="All") list=list.filter(c=>c.classroom===f.room); list=eduFilter(list);
+  list.sort((a,b)=>(a.classroom||"").localeCompare(b.classroom||"")||(a.last||"").localeCompare(b.last||""));
+  const start=+yr.slice(0,4); const now=new Date();
+  const monthEnd=i=>{ const m=(7+i)%12, y=start+(i>=5?1:0); return new Date(y,m+1,0,23,59); };
+  const late=i=>monthEnd(i)<now;
+  const dis=canEdit()?"":"disabled";
+  const rows=list.map(c=>{ const pf=c.portfolio?.[yr]||{}; const n=MONTHS.filter(m=>pf[m]).length; const owed=MONTHS.filter((m,i)=>late(i)&&!pf[m]).length;
+    return `<tr><td class="name-cell"><a href="#" data-go="child" data-id="${esc(c.id)}"><b>${esc(childName(c))}</b></a><div class="small muted">${esc(educatorOf(c)||c.classroom||"")}</div></td>
+    ${MONTHS.map((m,i)=>`<td class="${late(i)&&!pf[m]?"pf-late":""}" style="text-align:center"><input type="checkbox" aria-label="${esc(childName(c))} ${m}" data-pf="${esc(c.id)}|${yr}|${m}" ${pf[m]?"checked":""} ${dis}></td>`).join("")}
+    <td class="mono small">${n}${owed?` <span style="color:var(--danger)">${owed} behind</span>`:""}</td></tr>`; }).join("");
+  return `<div class="spread" style="margin-bottom:12px"><div><div class="eyebrow">Advocate teachers</div><h1>Portfolios</h1>
+    <p class="muted small" style="margin:.3em 0 0;max-width:62ch">One portfolio page per child each month. Tick a month when that page is done. Past months without a page are shaded.</p></div>
+    <div class="filters"><select id="pf-year" aria-label="School year">${yrs.map(y=>`<option ${y===yr?"selected":""}>${esc(y)}</option>`).join("")}</select></div></div>
+  <div class="filters" style="margin-bottom:12px"><select id="f-room" aria-label="Classroom"><option>All</option>${rooms.map(r=>`<option ${f.room===r?"selected":""}>${esc(r)}</option>`).join("")}</select>${eduSelect()}<span class="small muted mono">${list.length} ${list.length===1?"child":"children"}</span></div>
+  <div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th>${MONTHS.map(m=>`<th style="text-align:center">${m}</th>`).join("")}<th>Done</th></tr></thead><tbody>${rows||`<tr><td colspan="14" class="empty">No children match.</td></tr>`}</tbody></table></div>`;
+}
+function viewNextYear(){
+  const f=S.filters, rooms=S.settings.classrooms; const ny=nextFallYear(), key=`${ny}-${String(ny+1).slice(2)}`;
+  let list=activeChildren().filter(c=>eligibility(c,ny)); if(f.room!=="All") list=list.filter(c=>c.classroom===f.room); list=eduFilter(list);
+  const order={"1st":0,k:1,tk:2}; list.sort((a,b)=>order[eligibility(a,ny).key]-order[eligibility(b,ny).key]||(a.dob||"").localeCompare(b.dob||""));
+  const dis=canEdit()?"":"disabled";
+  const counts={}; list.forEach(c=>{ const p=c.transition?.[key]?.plan||""; counts[p]=(counts[p]||0)+1; });
+  const rows=list.map(c=>{ const el=eligibility(c,ny), tr=c.transition?.[key]||{};
+    return `<tr><td class="name-cell"><a href="#" data-go="child" data-id="${esc(c.id)}"><b>${esc(childName(c))}</b></a><div class="small muted">${esc(c.classroom||"")} · born ${esc(fmtDate(c.dob))}</div></td>
+      <td><span class="chip ${el.key==="tk"?"st-progress":"st-scheduled"}">${esc(el.label)}</span><div class="small muted">Age ${ageOnSept1(c.dob,ny)} on Sept 1</div></td>
+      <td><select data-ck="${esc(c.id)}|transition.${key}.plan" aria-label="Plan for ${esc(childName(c))}" ${dis}>${PLANS.map(([v,l])=>`<option value="${v}" ${(tr.plan||"")===v?"selected":""}>${l}</option>`).join("")}</select></td>
+      <td><input data-ck="${esc(c.id)}|transition.${key}.school" value="${esc(tr.school||"")}" placeholder="School" aria-label="Next school for ${esc(childName(c))}" ${dis} style="width:100%;min-width:120px"></td>
+      <td style="text-align:center"><input type="checkbox" data-ck="${esc(c.id)}|transition.${key}.infoNight" ${tr.infoNight?"checked":""} aria-label="Came to Info Night" ${dis}></td>
+      <td style="text-align:center"><input type="checkbox" data-ck="${esc(c.id)}|transition.${key}.recordsShared" ${tr.recordsShared?"checked":""} aria-label="Records shared" ${dis}></td></tr>`; }).join("");
+  return `<div class="spread" style="margin-bottom:12px"><div><div class="eyebrow">Transitions</div><h1>Fall ${ny}</h1>
+    <p class="muted small" style="margin:.3em 0 0;max-width:68ch">Children old enough for TK or Kindergarten next fall, using California's September 1 cutoffs, turning 4 for TK and 5 for Kindergarten. Confirm each family's district rules. Talk about plans at the spring conference and the Kindergarten and TK Info Night.</p></div></div>
+  <div class="filters" style="margin-bottom:12px"><select id="f-room" aria-label="Classroom"><option>All</option>${rooms.map(r=>`<option ${f.room===r?"selected":""}>${esc(r)}</option>`).join("")}</select>${eduSelect()}
+    <span class="small muted">${list.length} eligible · ${PLANS.filter(([v])=>counts[v]).map(([v,l])=>`${counts[v]} ${l.toLowerCase()}`).join(" · ")}</span></div>
+  <div class="tbl-wrap"><table class="list"><thead><tr><th>Child</th><th>Eligible for</th><th>Plan</th><th>Next school</th><th>Info Night</th><th>Records shared</th></tr></thead><tbody>${rows||`<tr><td colspan="6" class="empty">No children are old enough for TK or Kindergarten next fall.</td></tr>`}</tbody></table></div>`;
+}
 /* ---------- filters binding ---------- */
 function bindFilters(){
   const q=$("#f-q"); if(q) q.oninput=()=>{ S.filters.q=q.value; saveFilters(); render(); };
   const r=$("#f-room"); if(r) r.onchange=()=>{ S.filters.room=r.value; saveFilters(); render(); };
+  const ed=$("#f-edu"); if(ed) ed.onchange=()=>{ S.filters.edu=ed.value; saveFilters(); render(); };
+  const py=$("#pf-year"); if(py) py.onchange=()=>{ S.view.pfYear=py.value; render(); };
   const s=$("#f-status"); if(s) s.onchange=()=>{ S.filters.status=s.value; saveFilters(); render(); };
   const p=$("#period"); if(p) p.onchange=()=>{ const [year,term]=p.value.split("|"); S.period={year,term}; render(); };
   const cmp=$("#cmp"); if(cmp) cmp.onchange=()=>{ S.view.domain=cmp.value; render(); };
 }
+
+/* saving fields on the child page, portfolio grid and next-year list */
+document.addEventListener("change", e=>{
+  const t=e.target;
+  if(t.dataset.groupFor){ const id=t.dataset.groupFor; saveChildField(id,"group",t.value); return; }
+  if(t.dataset.ck){ const [id,...path]=t.dataset.ck.split("|"); const v=t.type==="checkbox"? t.checked : t.value; saveChildField(id, path.join("."), v); return; }
+  if(t.dataset.pf){ const [id,year,mon]=t.dataset.pf.split("|"); saveChildField(id, `portfolio.${year}.${mon}`, t.checked); t.closest("td")?.classList.remove("pf-late"); return; }
+});
+document.addEventListener("focusout", e=>{ if(e.target.dataset?.ck && S.deferRender){ S.deferRender=false; setTimeout(refresh,50); } });
 
 /* ---------- modal ---------- */
 function openModal(html, {wide=false}={}){
@@ -1036,7 +1164,8 @@ const actions = {
     if(!years.length){ toast("Write school years like 2026-27"); return; }
     const educators={}; $$("[data-room]").forEach(i=>{ educators[i.dataset.room]=i.value.split(",").map(s=>s.trim()).filter(Boolean); });
     classrooms.forEach(r=>{ if(!educators[r]) educators[r]=S.settings.educators?.[r]||[]; });
-    try{ await dbSet("settings/main",{classrooms,years,educators,updatedAt:nowISO()}); S.settings={...S.settings,classrooms,years,educators}; toast("Settings saved"); render(); }catch(e){}
+    const groups=lines($("#s-groups").value).map(l=>l.split(",").map(s=>s.trim())).filter(x=>x[0]).map(([name,room,educator])=>({name,room:room||"",educator:educator||""}));
+    try{ await dbSet("settings/main",{classrooms,years,educators,groups,updatedAt:nowISO()}); S.settings={...S.settings,classrooms,years,educators,groups}; toast("Settings saved"); render(); }catch(e){}
   },
   "import-form": a=>openImport(a.dataset.conf||null),
   "attach-only": ()=>openAttachOnly(),
@@ -1051,7 +1180,7 @@ const actions = {
 async function createConf(childId, year, term){
   const id = term==="Historical"? `${childId}--historical` : term==="Additional"? `${childId}--${year}-add-${uid().slice(0,5)}` : `${childId}--${year}-${term.toLowerCase()}`;
   const doc = {childId, schoolYear: term==="Historical"? "" : year, term, status:"open", fields:{}, reflections:{}, prep:{}, attachments:[], createdAt:nowISO(), updatedAt:nowISO(), ...(S.uid?{createdBy:S.uid,updatedBy:S.uid}:{})};
-  const c=S.children[childId]; if(c?.primaryEducator) doc.teacher=c.primaryEducator;
+  const c=S.children[childId]; if(educatorOf(c)) doc.teacher=educatorOf(c);
   try{
     // a co-teacher may have started this same conference a moment ago, so never overwrite it
     const ex = await S.db.doc("conferences/"+id).get().catch(()=>null);
@@ -1073,7 +1202,8 @@ function childForm(c){
       <div class="field"><label for="c-dob">Birthdate</label><input id="c-dob" type="date" value="${esc(c.dob||"")}"></div>
       <div class="field"><label for="c-gender">Gender</label><input id="c-gender" value="${esc(c.gender||"")}"></div>
       <div class="field"><label for="c-room">Classroom</label><select id="c-room">${rooms.map(r=>`<option ${c.classroom===r?"selected":""}>${esc(r)}</option>`).join("")}</select></div>
-      <div class="field"><label for="c-edu">Primary educator</label><input id="c-edu" list="c-edu-list" value="${esc(c.primaryEducator||"")}" autocomplete="off"><datalist id="c-edu-list">${educatorsFor().map(n=>`<option value="${esc(n)}">`).join("")}</datalist></div>
+      <div class="field"><label for="c-group">Small group</label><select id="c-group"><option value="">Choose</option>${groupsList().map(g=>`<option ${c.group===g.name?"selected":""} value="${esc(g.name)}">${esc(g.name)} · ${esc(g.room)} · ${esc(g.educator)}</option>`).join("")}</select></div>
+      <div class="field"><label for="c-edu">Primary educator</label><input id="c-edu" list="c-edu-list" value="${esc(c.primaryEducator||"")}" autocomplete="off" placeholder="From the small group"><datalist id="c-edu-list">${educatorsFor().map(n=>`<option value="${esc(n)}">`).join("")}</datalist></div>
       <div class="field"><label for="c-program">Program</label><input id="c-program" value="${esc(c.program||"")}"></div>
       <div class="field"><label for="c-schedule">Schedule</label><input id="c-schedule" value="${esc(c.schedule||"")}" placeholder="M,Tu,W,Th,F"></div>
       <div class="field"><label for="c-enroll">Enrollment date</label><input id="c-enroll" type="date" value="${esc(c.enrollDate||"")}"></div>
@@ -1089,7 +1219,7 @@ async function saveChildForm(){
   const f=$("#child-form"); const v=id=>$("#"+id).value.trim();
   if(!v("c-first")){ toast("Add the child's first name"); $("#c-first").focus(); return; }
   const parents=[0,1].map(i=>({name:v(`p${i}-name`),cell:v(`p${i}-cell`),email:v(`p${i}-email`)})).filter(p=>p.name||p.cell||p.email);
-  const data={first:v("c-first"),last:v("c-last"),dob:v("c-dob"),gender:v("c-gender"),classroom:v("c-room"),primaryEducator:v("c-edu"),program:v("c-program"),schedule:v("c-schedule"),enrollDate:v("c-enroll"),parents,ifsp:v("c-ifsp"),notes:v("c-notes"),status:v("c-status"),updatedAt:nowISO()};
+  const data={first:v("c-first"),last:v("c-last"),dob:v("c-dob"),gender:v("c-gender"),classroom:v("c-room"),group:v("c-group"),primaryEducator:v("c-edu"),program:v("c-program"),schedule:v("c-schedule"),enrollDate:v("c-enroll"),parents,ifsp:v("c-ifsp"),notes:v("c-notes"),status:v("c-status"),updatedAt:nowISO()};
   let id=f.dataset.id;
   try{
     if(id){ const {id:_,...prev}=S.children[id]; await dbSet("children/"+id,{...prev,...data}); toast("Saved"); }
@@ -1627,6 +1757,28 @@ function toggleBatchDetail(i, forceOpen){
     ${batchFieldList().map(([path,label])=>{ const v=batchValue(F,path); return `<div class="review-row" style="grid-template-columns:180px minmax(0,1fr)"><div><b class="small">${esc(label)}</b></div><div><textarea data-path="${esc(path)}" aria-label="${esc(label)}">${esc(v)}</textarea></div></div>`; }).join("")}</div>`;
 }
 actions["batch-check"]=a=>toggleBatchDetail(+a.dataset.i);
+actions["show-onboarding"]=()=>{ S.view.showOb=true; render(); };
+actions["visit-upload"]=a=>{
+  const id=a.dataset.id;
+  openModal(`<h2>Read visit notes</h2><p class="small muted" style="margin:0">Upload a photo or PDF of the completed Garden Visit or home visit form. Claude writes out what it says, and the text is added to the visit notes for you to check.</p>
+    <label class="drop" for="vn-file"><b>Choose a file</b><div class="small muted">JPEG, PNG or PDF</div></label><input type="file" id="vn-file" accept="image/*,.pdf,application/pdf" hidden><div id="vn-status"></div>
+    <div class="modal-foot"><button class="btn" data-act="close">Cancel</button></div>`);
+  $("#vn-file").onchange=async e=>{
+    const file=e.target.files[0]; if(!file) return; const st=$("#vn-status"); st.innerHTML=`<div class="progress-note"><span class="spinner"></span>Reading ${esc(file.name)}…</div>`;
+    try{
+      let text="", images=[]; const limits=await S.sample.limits().catch(()=>null);
+      if(/\.pdf$/i.test(file.name)||file.type==="application/pdf"){ const r=await readPdf(file); if(r.text.replace(/\s+/g,"").length>200) text=r.text; else images=await pdfToImages(r.doc,4); }
+      else images=[await normalizeImage(file,limits)];
+      const res=await S.sample.json(`This is a completed new-family visit form from a preschool, such as a Garden Visit or home visit form. Write out everything written on it, keeping each question or section title followed by the answer on the next line. Copy the writer's words faithfully. Mark words you cannot read as [illegible]. Leave out printed instructions. Reply with only JSON in this shape {"text":""}${text?"\n\nThe document text follows.\n<<<\n"+text.slice(0,60000)+"\n>>>":""}`, images.length?{images}:{});
+      const add=String(res?.text||"").trim(); if(!add) throw new Error("Nothing readable was found on that file.");
+      const c=S.children[id]; const cur=(c.onboarding?.visitNotes||"").trim();
+      await saveChildField(id,"onboarding.visitNotes", cur? cur+"\n\n"+add : add);
+      closeModal(); toast("Visit notes added"); render();
+    }catch(err){ st.innerHTML=`<div class="notice">${esc(err?.message||"That file could not be read.")}</div>`; }
+  };
+};
+
+
 function familiesToReach(){ return activeChildren().filter(c=>["none","progress"].includes(confStatus(periodConf(c.id)).key) && !(periodConf(c.id)?.signup==="signedup")); }
 actions["copy-emails"]=async()=>{
   const emails=[...new Set(familiesToReach().flatMap(c=>(c.parents||[]).map(p=>(p.email||"").trim()).filter(Boolean)))];
